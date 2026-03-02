@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "vite dev",
+    "prebuild": "node scripts/generate-icons.js",
     "build": "vite build",
     "start": "node build/index.js",
     "preview": "vite preview",
