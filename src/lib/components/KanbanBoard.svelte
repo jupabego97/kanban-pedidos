@@ -96,7 +96,7 @@
           <!-- ZONA DnD -->
           <div
             class="flex-1 overflow-y-auto scrollbar-hide p-2 space-y-2 min-h-[120px]"
-            use:dndzone={{ items: col.items, flipDuration, type: 'solicitud' }}
+            use:dndzone={{ items: col.items, flipDuration }}
             on:consider={(e) => handleDndConsider(col.id, e)}
             on:finalize={(e) => handleDndFinalize(col.id, e)}
           >
