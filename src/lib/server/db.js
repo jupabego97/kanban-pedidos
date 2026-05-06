@@ -35,17 +35,47 @@ async function ensureSchema() {
   await queryRaw(`
     CREATE TABLE IF NOT EXISTS proveedores (
       id BIGSERIAL PRIMARY KEY,
+      alegra_id TEXT,
       nombre TEXT NOT NULL UNIQUE,
-      dias_entrega INTEGER
+      dias_entrega INTEGER,
+      actualizado_en TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
   `);
 
   await queryRaw(`
     CREATE TABLE IF NOT EXISTS productos_catalogo (
       id BIGSERIAL PRIMARY KEY,
+      alegra_id TEXT,
       nombre TEXT NOT NULL,
-      proveedor_id BIGINT REFERENCES proveedores(id) ON DELETE SET NULL
+      proveedor_id BIGINT REFERENCES proveedores(id) ON DELETE SET NULL,
+      proveedor_alegra_id TEXT,
+      actualizado_en TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
+  `);
+
+  await queryRaw(`
+    ALTER TABLE proveedores
+    ADD COLUMN IF NOT EXISTS alegra_id TEXT;
+  `);
+
+  await queryRaw(`
+    ALTER TABLE proveedores
+    ADD COLUMN IF NOT EXISTS actualizado_en TIMESTAMPTZ NOT NULL DEFAULT NOW();
+  `);
+
+  await queryRaw(`
+    ALTER TABLE productos_catalogo
+    ADD COLUMN IF NOT EXISTS alegra_id TEXT;
+  `);
+
+  await queryRaw(`
+    ALTER TABLE productos_catalogo
+    ADD COLUMN IF NOT EXISTS proveedor_alegra_id TEXT;
+  `);
+
+  await queryRaw(`
+    ALTER TABLE productos_catalogo
+    ADD COLUMN IF NOT EXISTS actualizado_en TIMESTAMPTZ NOT NULL DEFAULT NOW();
   `);
 
   await queryRaw(`
@@ -67,6 +97,18 @@ async function ensureSchema() {
 
   await queryRaw(`
     CREATE INDEX IF NOT EXISTS idx_solicitudes_creado_en ON solicitudes(creado_en DESC);
+  `);
+
+  await queryRaw(`
+    CREATE UNIQUE INDEX IF NOT EXISTS ux_proveedores_alegra_id
+    ON proveedores(alegra_id)
+    WHERE alegra_id IS NOT NULL;
+  `);
+
+  await queryRaw(`
+    CREATE UNIQUE INDEX IF NOT EXISTS ux_productos_catalogo_alegra_id
+    ON productos_catalogo(alegra_id)
+    WHERE alegra_id IS NOT NULL;
   `);
 
   schemaReady = true;

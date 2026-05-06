@@ -1,11 +1,22 @@
 import { json } from "@sveltejs/kit";
 import { query } from "$lib/server/db";
+import { buscarProductosAlegra } from "$lib/server/alegra";
+import { guardarProductos } from "$lib/server/catalogCache";
 
 export async function GET({ url }) {
   const rawQuery = url.searchParams.get("query")?.trim() || "";
   if (rawQuery.length < 2) return json([]);
 
   try {
+    try {
+      const productosAlegra = await buscarProductosAlegra(rawQuery);
+      if (productosAlegra.length > 0) {
+        await guardarProductos(productosAlegra);
+      }
+    } catch {
+      // Si Alegra falla, usar cache local para no interrumpir el autocompletado.
+    }
+
     const { rows } = await query(
       `
         SELECT
