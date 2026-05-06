@@ -47,26 +47,6 @@ async function alegraFetch(path, params = {}) {
   return response.json();
 }
 
-function looksLikeProveedor(item) {
-  const raw = [
-    item?.type,
-    item?.contactType,
-    item?.kindOfPerson,
-    item?.category,
-    item?.label,
-  ]
-    .filter(Boolean)
-    .join(" ")
-    .toLowerCase();
-
-  if (!raw) return true;
-  return (
-    raw.includes("supplier") ||
-    raw.includes("provider") ||
-    raw.includes("proveedor")
-  );
-}
-
 function mapProveedor(item) {
   const nombre =
     item?.name ||
@@ -103,14 +83,13 @@ function mapProducto(item) {
 
 export async function obtenerProveedoresAlegra() {
   const payload = await alegraFetch("/contacts", {
+    order_direction: "ASC",
+    type: "provider",
     start: 0,
     limit: 200,
   });
 
-  return toArray(payload)
-    .filter(looksLikeProveedor)
-    .map(mapProveedor)
-    .filter(Boolean);
+  return toArray(payload).map(mapProveedor).filter(Boolean);
 }
 
 export async function buscarProductosAlegra(query) {
