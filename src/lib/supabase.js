@@ -1,6 +1,7 @@
 function toUserError(error, fallback) {
-  const detalle = error?.message || error?.detail || "";
-  return new Error(detalle ? `${fallback} (${detalle})` : fallback);
+  const partes = [error?.message, error?.detail].filter(Boolean);
+  if (partes.length > 0) return new Error(partes.join(": "));
+  return new Error(fallback);
 }
 
 async function apiFetch(path, options = {}) {
@@ -20,10 +21,7 @@ async function apiFetch(path, options = {}) {
   }
 
   if (!response.ok) {
-    throw toUserError(
-      body || {},
-      body?.message || "Error de comunicacion con el servidor",
-    );
+    throw toUserError(body || {}, "Error de comunicacion con el servidor");
   }
 
   return body;
