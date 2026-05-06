@@ -1,6 +1,7 @@
 <script>
   import { buscarProductos, crearSolicitud } from '$lib/supabase.js';
-  import { proveedores } from '$lib/stores.js';
+  import { proveedores, notificacion } from '$lib/stores.js';
+  import { iniciarMedicion, finalizarMedicion, registrarErrorFormulario } from '$lib/uxMetrics.js';
 
   let productoNombre = '';
   let tipo = 'Agotado';
@@ -8,38 +9,68 @@
   let proveedorId = null;
   let sugerencias = [];
   let mostrarSugerencias = false;
+  let buscandoSugerencias = false;
+  let sinResultados = false;
+  let sugerenciaActiva = -1;
   let enviando = false;
   let exitoso = false;
   let error = '';
   let inputRef;
   let debounceTimer;
 
+  function limpiarSugerencias() {
+    sugerencias = [];
+    mostrarSugerencias = false;
+    sugerenciaActiva = -1;
+    sinResultados = false;
+    buscandoSugerencias = false;
+  }
+
   async function onInputProducto(e) {
     const q = e.target.value;
     productoNombre = q;
     clearTimeout(debounceTimer);
-    if (q.length < 2) { sugerencias = []; mostrarSugerencias = false; return; }
+    if (q.length < 2) {
+      limpiarSugerencias();
+      return;
+    }
+    buscandoSugerencias = true;
+    sinResultados = false;
+    mostrarSugerencias = true;
     debounceTimer = setTimeout(async () => {
-      sugerencias = await buscarProductos(q);
-      mostrarSugerencias = sugerencias.length > 0;
+      try {
+        sugerencias = await buscarProductos(q);
+        sugerenciaActiva = sugerencias.length > 0 ? 0 : -1;
+        sinResultados = sugerencias.length === 0;
+      } catch (e) {
+        error = 'No se pudo buscar en el catálogo.';
+        limpiarSugerencias();
+      } finally {
+        buscandoSugerencias = false;
+      }
     }, 180);
   }
 
   function seleccionarSugerencia(s) {
     productoNombre = s.nombre;
     proveedorId = s.proveedor_id ?? null;
-    sugerencias = [];
-    mostrarSugerencias = false;
+    limpiarSugerencias();
   }
 
   function cerrarSugerencias() {
-    setTimeout(() => { mostrarSugerencias = false; }, 150);
+    setTimeout(() => { mostrarSugerencias = false; sugerenciaActiva = -1; }, 150);
   }
 
   async function handleSubmit() {
+    if (enviando) return;
     error = '';
-    if (!productoNombre.trim()) { error = 'Ingresa el nombre del producto.'; return; }
+    if (!productoNombre.trim()) {
+      error = 'Ingresa el nombre del producto.';
+      registrarErrorFormulario();
+      return;
+    }
 
+    const medicion = iniciarMedicion('registroMs');
     enviando = true;
     try {
       await crearSolicitud({
@@ -57,16 +88,48 @@
       tipo = 'Agotado';
       inputRef?.focus();
       setTimeout(() => { exitoso = false; }, 2500);
+      finalizarMedicion(medicion);
+      notificacion.set({
+        tipo: 'success',
+        mensaje: 'Solicitud registrada correctamente.'
+      });
     } catch (e) {
       error = 'Error al registrar. Intenta de nuevo.';
+      registrarErrorFormulario();
+      notificacion.set({
+        tipo: 'error',
+        mensaje: 'No se pudo registrar la solicitud. Revisa tu conexion.'
+      });
     } finally {
       enviando = false;
     }
   }
 
   function handleKeydown(e) {
-    if (e.key === 'Enter') handleSubmit();
-    if (e.key === 'Escape') { mostrarSugerencias = false; }
+    if (e.key === 'Escape') {
+      mostrarSugerencias = false;
+      sugerenciaActiva = -1;
+      return;
+    }
+    if (e.key === 'ArrowDown' && (sugerencias.length || buscandoSugerencias)) {
+      e.preventDefault();
+      if (!mostrarSugerencias) mostrarSugerencias = true;
+      sugerenciaActiva = Math.min(sugerenciaActiva + 1, sugerencias.length - 1);
+      return;
+    }
+    if (e.key === 'ArrowUp' && sugerencias.length) {
+      e.preventDefault();
+      sugerenciaActiva = Math.max(sugerenciaActiva - 1, 0);
+      return;
+    }
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      if (mostrarSugerencias && sugerenciaActiva >= 0 && sugerencias[sugerenciaActiva]) {
+        seleccionarSugerencia(sugerencias[sugerenciaActiva]);
+        return;
+      }
+      handleSubmit();
+    }
   }
 </script>
 
@@ -106,15 +169,32 @@
         on:keydown={handleKeydown}
         on:blur={cerrarSugerencias}
         class="input-field text-base"
+        role="combobox"
+        aria-expanded={mostrarSugerencias}
+        aria-controls="lista-sugerencias-producto"
+        aria-activedescendant={sugerenciaActiva >= 0 ? `sugerencia-${sugerenciaActiva}` : undefined}
       />
       {#if mostrarSugerencias}
-        <ul class="absolute left-0 right-0 top-full mt-1 bg-white border border-gray-200 rounded-xl shadow-xl z-40 overflow-hidden">
-          {#each sugerencias as s}
+        <ul
+          id="lista-sugerencias-producto"
+          role="listbox"
+          class="absolute left-0 right-0 top-full mt-1 bg-white border border-gray-200 rounded-xl shadow-xl z-40 overflow-hidden"
+        >
+          {#if buscandoSugerencias}
+            <li class="px-4 py-3 text-sm text-gray-500">Buscando en catalogo...</li>
+          {:else if sinResultados}
+            <li class="px-4 py-3 text-sm text-gray-500">Sin resultados para "{productoNombre}".</li>
+          {/if}
+          {#each sugerencias as s, idx}
             <li>
               <button
                 type="button"
                 on:mousedown={() => seleccionarSugerencia(s)}
                 class="w-full text-left px-4 py-3 text-sm hover:bg-blue-50 transition-colors flex justify-between items-center"
+                class:bg-blue-50={sugerenciaActiva === idx}
+                role="option"
+                aria-selected={sugerenciaActiva === idx}
+                id={"sugerencia-" + idx}
               >
                 <span class="font-medium">{s.nombre}</span>
                 {#if s.proveedores}

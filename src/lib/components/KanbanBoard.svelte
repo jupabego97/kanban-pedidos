@@ -1,8 +1,11 @@
 <script>
+  import { onMount } from 'svelte';
   import { dndzone } from 'svelte-dnd-action';
   import { flip } from 'svelte/animate';
   import { actualizarEstado } from '$lib/supabase.js';
-  import { solicitudes, proveedores, filtroProveedor, tableroData, COLUMNAS } from '$lib/stores.js';
+  import { browser } from '$app/environment';
+  import { solicitudes, proveedores, filtroProveedor, tableroData, notificacion } from '$lib/stores.js';
+  import { iniciarMedicion, finalizarMedicion } from '$lib/uxMetrics.js';
   import KanbanCard from './KanbanCard.svelte';
 
   // Estado local de columnas para el DnD (necesita ser reactivo y mutable)
@@ -10,25 +13,54 @@
   $: columnas = $tableroData.map((col) => ({ ...col, items: [...col.items] }));
 
   const flipDuration = 200;
+  let columnaActiva = '';
+
+  onMount(() => {
+    if (!browser) return;
+    const guardado = window.localStorage.getItem('filtroProveedorKanban');
+    if (guardado) {
+      const numero = Number(guardado);
+      filtroProveedor.set(Number.isNaN(numero) ? null : numero);
+    }
+  });
+
+  $: if (browser) {
+    const valor = $filtroProveedor === null ? '' : String($filtroProveedor);
+    window.localStorage.setItem('filtroProveedorKanban', valor);
+  }
 
   function handleDndConsider(colId, e) {
+    columnaActiva = colId;
     columnas = columnas.map((c) =>
       c.id === colId ? { ...c, items: e.detail.items } : c
     );
   }
 
   async function handleDndFinalize(colId, e) {
+    columnaActiva = '';
     const items = e.detail.items;
     columnas = columnas.map((c) => (c.id === colId ? { ...c, items } : c));
 
     // Actualizar en Supabase y en el store global
-    for (const item of items) {
-      if (item.estado !== colId) {
-        await actualizarEstado(item.id, colId);
-        solicitudes.update((prev) =>
-          prev.map((s) => (s.id === item.id ? { ...s, estado: colId } : s))
-        );
-      }
+    const cambios = items.filter((item) => item.estado !== colId);
+    if (cambios.length === 0) return;
+    const medicion = iniciarMedicion('movimientoMs');
+
+    try {
+      await Promise.all(
+        cambios.map((item) =>
+          actualizarEstado(item.id, colId).then(() => {
+            solicitudes.update((prev) =>
+              prev.map((s) => (s.id === item.id ? { ...s, estado: colId } : s))
+            );
+          })
+        )
+      );
+      const cantidadTexto = cambios.length === 1 ? '1 tarjeta movida' : `${cambios.length} tarjetas movidas`;
+      finalizarMedicion(medicion);
+      notificacion.set({ tipo: 'success', mensaje: `${cantidadTexto} a "${COLOR_LABEL[colId]}".` });
+    } catch (error) {
+      notificacion.set({ tipo: 'error', mensaje: 'No se pudo guardar el cambio de estado. Intenta otra vez.' });
     }
   }
 
@@ -38,6 +70,14 @@
     por_pedir:   'bg-orange-500',
     en_camino:   'bg-blue-600',
     recibido:    'bg-green-600'
+  };
+
+  const COLOR_LABEL = {
+    solicitudes: 'Nuevas Solicitudes',
+    analisis: 'En Analisis',
+    por_pedir: 'Lista de Compras',
+    en_camino: 'Pedido Realizado',
+    recibido: 'Recibido'
   };
 </script>
 
@@ -49,7 +89,7 @@
     <div class="flex gap-2 flex-wrap">
       <button
         on:click={() => filtroProveedor.set(null)}
-        class="px-3 py-1 rounded-full text-xs font-medium transition-colors border"
+        class="px-3 py-1 rounded-full text-xs font-medium transition-colors border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
         class:bg-blue-700={$filtroProveedor === null}
         class:text-white={$filtroProveedor === null}
         class:border-blue-700={$filtroProveedor === null}
@@ -62,7 +102,7 @@
       {#each $proveedores as p}
         <button
           on:click={() => filtroProveedor.set(p.id)}
-          class="px-3 py-1 rounded-full text-xs font-medium transition-colors border"
+          class="px-3 py-1 rounded-full text-xs font-medium transition-colors border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
           class:bg-blue-700={$filtroProveedor === p.id}
           class:text-white={$filtroProveedor === p.id}
           class:border-blue-700={$filtroProveedor === p.id}
@@ -95,8 +135,9 @@
 
           <!-- ZONA DnD -->
           <div
-            class="flex-1 overflow-y-auto scrollbar-hide p-2 space-y-2 min-h-[120px]"
-            use:dndzone={{ items: col.items, flipDuration }}
+            class="flex-1 overflow-y-auto scrollbar-hide p-2 space-y-2 min-h-[120px] transition-colors"
+            class:bg-blue-50={columnaActiva === col.id}
+            use:dndzone={{ items: col.items, flipDurationMs: flipDuration }}
             on:consider={(e) => handleDndConsider(col.id, e)}
             on:finalize={(e) => handleDndFinalize(col.id, e)}
           >

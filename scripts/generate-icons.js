@@ -2,8 +2,8 @@
  * Genera los iconos PNG necesarios para la PWA usando solo Node.js built-ins.
  * Color: #1e40af (azul corporativo)
  */
-import { writeFileSync, mkdirSync } from 'fs';
-import { deflateSync } from 'zlib';
+import { writeFileSync, mkdirSync } from "fs";
+import { deflateSync } from "zlib";
 
 // ─── CRC32 (requerido por el formato PNG) ──────────────────────
 const crcTable = (() => {
@@ -54,23 +54,23 @@ function createSolidPNG(size, r, g, b) {
 
   return Buffer.concat([
     sig,
-    pngChunk('IHDR', ihdr),
-    pngChunk('IDAT', deflateSync(raw, { level: 9 })),
-    pngChunk('IEND', Buffer.alloc(0))
+    pngChunk("IHDR", ihdr),
+    pngChunk("IDAT", deflateSync(raw, { level: 9 })),
+    pngChunk("IEND", Buffer.alloc(0)),
   ]);
 }
 
 // ─── Crear iconos ───────────────────────────────────────────────
-mkdirSync('static', { recursive: true });
+mkdirSync("static", { recursive: true });
 
 const BLUE = [30, 64, 175]; // #1e40af
 
 const icons = [
-  ['static/pwa-192x192.png', 192],
-  ['static/pwa-512x512.png', 512],
-  ['static/apple-touch-icon.png', 180],
-  ['static/apple-touch-icon-120x120.png', 120],
-  ['static/apple-touch-icon-120x120-precomposed.png', 120]
+  ["static/pwa-192x192.png", 192],
+  ["static/pwa-512x512.png", 512],
+  ["static/apple-touch-icon.png", 180],
+  ["static/apple-touch-icon-120x120.png", 120],
+  ["static/apple-touch-icon-120x120-precomposed.png", 120],
 ];
 
 for (const [path, size] of icons) {
