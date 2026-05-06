@@ -95,7 +95,7 @@ export async function obtenerProveedoresAlegra() {
 export async function buscarProductosAlegra(query) {
   const payload = await alegraFetch("/items", {
     start: 0,
-    limit: 200,
+    limit: 30,
   });
 
   const texto = query.trim().toLowerCase();
