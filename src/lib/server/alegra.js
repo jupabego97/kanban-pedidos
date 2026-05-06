@@ -95,9 +95,12 @@ export async function obtenerProveedoresAlegra() {
 export async function buscarProductosAlegra(query) {
   const payload = await alegraFetch("/items", {
     start: 0,
-    limit: 100,
-    query,
+    limit: 200,
   });
 
-  return toArray(payload).map(mapProducto).filter(Boolean);
+  const texto = query.trim().toLowerCase();
+  return toArray(payload)
+    .map(mapProducto)
+    .filter(Boolean)
+    .filter((item) => item.nombre.toLowerCase().includes(texto));
 }
