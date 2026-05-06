@@ -8,13 +8,15 @@ export async function GET({ url }) {
   if (rawQuery.length < 2) return json([]);
 
   try {
+    let syncError = null;
     try {
       const productosAlegra = await buscarProductosAlegra(rawQuery);
       if (productosAlegra.length > 0) {
         await guardarProductos(productosAlegra);
       }
-    } catch {
+    } catch (err) {
       // Si Alegra falla, usar cache local para no interrumpir el autocompletado.
+      syncError = err;
     }
 
     const { rows } = await query(
@@ -35,6 +37,13 @@ export async function GET({ url }) {
       `,
       [`%${rawQuery}%`],
     );
+
+    if (rows.length === 0 && syncError) {
+      throw new Error(
+        `Fallo de sincronización con Alegra: ${syncError.message}`,
+      );
+    }
+
     return json(rows);
   } catch (error) {
     return json(

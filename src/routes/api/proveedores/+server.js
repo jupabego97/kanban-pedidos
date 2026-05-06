@@ -11,6 +11,7 @@ export async function GET() {
   try {
     const debeSincronizar =
       (await cacheVacio("proveedores")) || (await cacheExpirado("proveedores"));
+    let syncError = null;
 
     if (debeSincronizar) {
       try {
@@ -18,8 +19,9 @@ export async function GET() {
         if (proveedoresAlegra.length > 0) {
           await guardarProveedores(proveedoresAlegra);
         }
-      } catch (syncError) {
+      } catch (err) {
         // Permitir responder desde cache local si Alegra no está disponible.
+        syncError = err;
       }
     }
 
@@ -30,6 +32,13 @@ export async function GET() {
         ORDER BY nombre ASC
       `,
     );
+
+    if (rows.length === 0 && syncError) {
+      throw new Error(
+        `Fallo de sincronización con Alegra: ${syncError.message}`,
+      );
+    }
+
     return json(rows);
   } catch (error) {
     return json(

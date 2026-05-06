@@ -100,15 +100,21 @@ async function ensureSchema() {
   `);
 
   await queryRaw(`
+    DROP INDEX IF EXISTS ux_proveedores_alegra_id;
+  `);
+
+  await queryRaw(`
     CREATE UNIQUE INDEX IF NOT EXISTS ux_proveedores_alegra_id
-    ON proveedores(alegra_id)
-    WHERE alegra_id IS NOT NULL;
+    ON proveedores(alegra_id);
+  `);
+
+  await queryRaw(`
+    DROP INDEX IF EXISTS ux_productos_catalogo_alegra_id;
   `);
 
   await queryRaw(`
     CREATE UNIQUE INDEX IF NOT EXISTS ux_productos_catalogo_alegra_id
-    ON productos_catalogo(alegra_id)
-    WHERE alegra_id IS NOT NULL;
+    ON productos_catalogo(alegra_id);
   `);
 
   schemaReady = true;
