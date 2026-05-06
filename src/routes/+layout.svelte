@@ -29,21 +29,9 @@
   onMount(async () => {
     await cargarDatosIniciales();
 
-    // Suscripción en tiempo real
-    cancelarSuscripcion = suscribirSolicitudes(async (payload) => {
-      const { eventType, new: nueva, old } = payload;
-      solicitudes.update((prev) => {
-        if (eventType === 'INSERT') {
-          return [{ ...nueva }, ...prev];
-        }
-        if (eventType === 'UPDATE') {
-          return prev.map((s) => (s.id === nueva.id ? { ...s, ...nueva } : s));
-        }
-        if (eventType === 'DELETE') {
-          return prev.filter((s) => s.id !== old.id);
-        }
-        return prev;
-      });
+    // Sincronización periódica desde API propia
+    cancelarSuscripcion = suscribirSolicitudes((data) => {
+      solicitudes.set(data);
     });
   });
 

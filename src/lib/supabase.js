@@ -1,107 +1,100 @@
-import { createClient } from "@supabase/supabase-js";
-import { env } from "$env/dynamic/public";
-
-// Inicialización lazy: el cliente se crea la primera vez que se usa,
-// garantizando que las variables de entorno ya están disponibles.
-let _client = null;
-
 function toUserError(error, fallback) {
-  const detalle = error?.message || error?.details || "";
-  const mensaje = detalle ? `${fallback} (${detalle})` : fallback;
-  return new Error(mensaje);
+  const detalle = error?.message || error?.detail || "";
+  return new Error(detalle ? `${fallback} (${detalle})` : fallback);
 }
 
-function getClient() {
-  if (!_client) {
-    _client = createClient(
-      env.PUBLIC_SUPABASE_URL,
-      env.PUBLIC_SUPABASE_ANON_KEY,
-      {
-        realtime: { params: { eventsPerSecond: 10 } },
-      },
+async function apiFetch(path, options = {}) {
+  const response = await fetch(path, {
+    headers: {
+      "Content-Type": "application/json",
+      ...(options.headers || {}),
+    },
+    ...options,
+  });
+
+  let body = null;
+  try {
+    body = await response.json();
+  } catch {
+    body = null;
+  }
+
+  if (!response.ok) {
+    throw toUserError(
+      body || {},
+      body?.message || "Error de comunicacion con el servidor",
     );
   }
-  return _client;
+
+  return body;
 }
 
 // ─── PROVEEDORES ────────────────────────────────────────────
 export async function getProveedores() {
-  const { data, error } = await getClient()
-    .from("proveedores")
-    .select("*")
-    .order("nombre");
-  if (error) throw toUserError(error, "No se pudieron cargar los proveedores");
-  return data;
+  return apiFetch("/api/proveedores");
 }
 
 // ─── CATÁLOGO (autocompletado) ───────────────────────────────
 export async function buscarProductos(query) {
   if (!query || query.length < 2) return [];
-  const { data, error } = await getClient()
-    .from("productos_catalogo")
-    .select("id, nombre, proveedor_id, proveedores(nombre)")
-    .ilike("nombre", `%${query}%`)
-    .limit(8);
-  if (error) throw toUserError(error, "No se pudo consultar el catalogo");
-  return data;
+  const params = new URLSearchParams({ query });
+  return apiFetch(`/api/productos?${params.toString()}`);
 }
 
 // ─── SOLICITUDES ─────────────────────────────────────────────
 export async function getSolicitudes() {
-  const { data, error } = await getClient()
-    .from("solicitudes")
-    .select("*, proveedores(nombre, dias_entrega)")
-    .order("creado_en", { ascending: false });
-  if (error) throw toUserError(error, "No se pudieron cargar las solicitudes");
-  return data;
+  return apiFetch("/api/solicitudes");
 }
 
 export async function crearSolicitud(solicitud) {
-  const { data, error } = await getClient()
-    .from("solicitudes")
-    .insert([solicitud])
-    .select()
-    .single();
-  if (error) throw toUserError(error, "No se pudo crear la solicitud");
-  return data;
+  return apiFetch("/api/solicitudes", {
+    method: "POST",
+    body: JSON.stringify(solicitud),
+  });
 }
 
 export async function actualizarEstado(id, estado) {
-  const { error } = await getClient()
-    .from("solicitudes")
-    .update({ estado })
-    .eq("id", id);
-  if (error) throw toUserError(error, "No se pudo actualizar el estado");
+  await apiFetch(`/api/solicitudes/${id}/estado`, {
+    method: "PATCH",
+    body: JSON.stringify({ estado }),
+  });
 }
 
 export async function actualizarCantidad(id, cantidad_pedida) {
-  const { error } = await getClient()
-    .from("solicitudes")
-    .update({ cantidad_pedida })
-    .eq("id", id);
-  if (error) throw toUserError(error, "No se pudo actualizar la cantidad");
+  await apiFetch(`/api/solicitudes/${id}/cantidad`, {
+    method: "PATCH",
+    body: JSON.stringify({ cantidad_pedida }),
+  });
 }
 
 export async function eliminarSolicitud(id) {
-  const { error } = await getClient().from("solicitudes").delete().eq("id", id);
-  if (error) throw toUserError(error, "No se pudo eliminar la solicitud");
+  await apiFetch(`/api/solicitudes/${id}`, { method: "DELETE" });
 }
 
-// ─── TIEMPO REAL ─────────────────────────────────────────────
+// ─── SINCRONIZACION PERIODICA ────────────────────────────────
 /**
- * Suscribirse a cambios en la tabla solicitudes.
- * @param {(payload: object) => void} callback
+ * Actualiza la lista de solicitudes cada N segundos.
+ * @param {(solicitudes: object[]) => void} callback
+ * @param {number} intervalMs
  * @returns {() => void} función para cancelar la suscripción
  */
-export function suscribirSolicitudes(callback) {
-  const channel = getClient()
-    .channel("solicitudes-realtime")
-    .on(
-      "postgres_changes",
-      { event: "*", schema: "public", table: "solicitudes" },
-      callback,
-    )
-    .subscribe();
+export function suscribirSolicitudes(callback, intervalMs = 7000) {
+  let activo = true;
 
-  return () => getClient().removeChannel(channel);
+  const tick = async () => {
+    try {
+      const data = await getSolicitudes();
+      if (activo) callback(data);
+    } catch {
+      // Evitar romper la UI por fallos transitorios de red.
+    }
+  };
+
+  tick();
+  const timer = setInterval(tick, intervalMs);
+
+  return () => {
+    activo = false;
+    clearInterval(timer);
+  };
 }
