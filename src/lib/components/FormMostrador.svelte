@@ -18,6 +18,12 @@
   let inputRef;
   let debounceTimer;
 
+  /** @param {string} q */
+  function pareceCodigoBarras(q) {
+    const t = q.trim();
+    return t.length >= 6 && /^\d+$/.test(t);
+  }
+
   function limpiarSugerencias() {
     sugerencias = [];
     mostrarSugerencias = false;
@@ -30,7 +36,7 @@
     const q = e.target.value;
     productoNombre = q;
     clearTimeout(debounceTimer);
-    if (q.length < 2) {
+    if (q.length < 2 && !pareceCodigoBarras(q)) {
       limpiarSugerencias();
       return;
     }
@@ -42,6 +48,9 @@
         sugerencias = await buscarProductos(q);
         sugerenciaActiva = sugerencias.length > 0 ? 0 : -1;
         sinResultados = sugerencias.length === 0;
+        if (pareceCodigoBarras(q) && sugerencias.length === 1) {
+          seleccionarSugerencia(sugerencias[0]);
+        }
       } catch (e) {
         error = 'No se pudo buscar en el catálogo.';
         limpiarSugerencias();
@@ -128,6 +137,10 @@
         seleccionarSugerencia(sugerencias[sugerenciaActiva]);
         return;
       }
+      if (pareceCodigoBarras(productoNombre) && sugerencias.length === 1) {
+        seleccionarSugerencia(sugerencias[0]);
+        return;
+      }
       handleSubmit();
     }
   }
@@ -190,15 +203,29 @@
               <button
                 type="button"
                 on:mousedown={() => seleccionarSugerencia(s)}
-                class="w-full text-left px-4 py-3 text-sm hover:bg-blue-50 transition-colors flex justify-between items-center"
+                class="w-full text-left px-4 py-3 text-sm hover:bg-blue-50 transition-colors flex justify-between items-start gap-2"
                 class:bg-blue-50={sugerenciaActiva === idx}
                 role="option"
                 aria-selected={sugerenciaActiva === idx}
                 id={"sugerencia-" + idx}
               >
-                <span class="font-medium">{s.nombre}</span>
+                <span class="min-w-0 flex-1">
+                  <span class="font-medium block">{s.nombre}</span>
+                  {#if s.barcode || s.referencia}
+                    <span class="text-[11px] text-gray-500 block mt-0.5">
+                      {#if s.barcode}
+                        EAN: {s.barcode}
+                      {/if}
+                      {#if s.referencia && s.referencia !== s.barcode}
+                        <span class:text-gray-400={s.barcode}> · Ref: {s.referencia}</span>
+                      {:else if !s.barcode && s.referencia}
+                        Ref: {s.referencia}
+                      {/if}
+                    </span>
+                  {/if}
+                </span>
                 {#if s.proveedores}
-                  <span class="text-xs text-gray-400">{s.proveedores.nombre}</span>
+                  <span class="text-xs text-gray-400 shrink-0">{s.proveedores.nombre}</span>
                 {/if}
               </button>
             </li>

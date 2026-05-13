@@ -28,14 +28,23 @@ async function apiFetch(path, options = {}) {
 }
 
 // ─── PROVEEDORES ────────────────────────────────────────────
-export async function getProveedores() {
-  return apiFetch("/api/proveedores");
+/** @param {{ refresh?: boolean }} [opts] */
+export async function getProveedores(opts = {}) {
+  const q = opts.refresh ? "?refresh=1" : "";
+  return apiFetch(`/api/proveedores${q}`);
 }
 
 // ─── CATÁLOGO (autocompletado) ───────────────────────────────
+/** @param {string} query */
 export async function buscarProductos(query) {
-  if (!query || query.length < 2) return [];
-  const params = new URLSearchParams({ query });
+  const t = (query || "").trim();
+  const soloDigitosLargo = t.length >= 6 && /^\d+$/.test(t);
+  if (t.length < 2 && !soloDigitosLargo) return [];
+  const params = new URLSearchParams();
+  if (soloDigitosLargo) {
+    params.set("barcode", t);
+  }
+  params.set("query", t);
   return apiFetch(`/api/productos?${params.toString()}`);
 }
 

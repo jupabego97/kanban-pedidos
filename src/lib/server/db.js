@@ -117,6 +117,33 @@ async function ensureSchema() {
     ON productos_catalogo(alegra_id);
   `);
 
+  await queryRaw(`
+    ALTER TABLE productos_catalogo
+    ADD COLUMN IF NOT EXISTS barcode TEXT;
+  `);
+
+  await queryRaw(`
+    ALTER TABLE productos_catalogo
+    ADD COLUMN IF NOT EXISTS referencia TEXT;
+  `);
+
+  await queryRaw(`
+    CREATE INDEX IF NOT EXISTS idx_productos_catalogo_barcode
+    ON productos_catalogo(barcode)
+    WHERE barcode IS NOT NULL;
+  `);
+
+  await queryRaw(`
+    CREATE INDEX IF NOT EXISTS idx_productos_catalogo_nombre_lower
+    ON productos_catalogo(LOWER(nombre));
+  `);
+
+  await queryRaw(`
+    CREATE INDEX IF NOT EXISTS idx_productos_catalogo_referencia
+    ON productos_catalogo(referencia)
+    WHERE referencia IS NOT NULL;
+  `);
+
   schemaReady = true;
 }
 
