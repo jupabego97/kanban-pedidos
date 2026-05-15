@@ -21,8 +21,8 @@
   <div class="h-[calc(100vh-56px)] flex flex-col">
     {#if $solicitudes.length === 0}
       <div class="m-4 rounded-2xl border border-dashed border-gray-300 bg-white p-8 text-center">
-        <p class="text-sm font-semibold text-gray-700">Aun no hay solicitudes.</p>
-        <p class="mt-1 text-xs text-gray-500">Registra faltantes en la vista Mostrador para comenzar.</p>
+        <p class="text-sm font-semibold text-gray-700">Aún no hay pedidos pendientes.</p>
+        <p class="mt-1 text-xs text-gray-500">Registra faltantes de electrónica en Mostrador para comenzar.</p>
       </div>
     {:else}
       <KanbanBoard />

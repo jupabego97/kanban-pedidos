@@ -45,7 +45,7 @@
   <!-- NAV -->
   <header class="bg-blue-800 text-white shadow-lg sticky top-0 z-50">
     <div class="max-w-screen-2xl mx-auto px-4 h-14 flex items-center justify-between">
-      <span class="font-bold text-lg tracking-tight">📦 Pedidos</span>
+      <span class="font-bold text-lg tracking-tight">⚡ Pedidos · Electrónica</span>
       <nav class="flex gap-1">
         <button
           on:click={() => vistaActiva.set('mostrador')}

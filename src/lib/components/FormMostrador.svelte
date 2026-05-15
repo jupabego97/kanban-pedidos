@@ -147,8 +147,10 @@
 </script>
 
 <div class="max-w-md mx-auto px-4 pt-6 pb-10">
-  <h1 class="text-2xl font-bold text-gray-900 mb-1">Registrar Faltante</h1>
-  <p class="text-sm text-gray-500 mb-6">Anota el producto que falta o que el cliente pide.</p>
+  <h1 class="text-2xl font-bold text-gray-900 mb-1">Registrar faltante</h1>
+  <p class="text-sm text-gray-500 mb-6">
+    Artículo de electrónica agotado o pedido por el cliente (cable, memoria, accesorio, etc.).
+  </p>
 
   <!-- ALERTA ÉXITO -->
   {#if exitoso}
@@ -176,7 +178,7 @@
         bind:this={inputRef}
         type="text"
         autocomplete="off"
-        placeholder="Ej: Aceite de Oliva 500ml"
+        placeholder="Ej: Memoria Micro SD 128GB"
         value={productoNombre}
         on:input={onInputProducto}
         on:keydown={handleKeydown}
@@ -194,7 +196,7 @@
           class="absolute left-0 right-0 top-full mt-1 bg-white border border-gray-200 rounded-xl shadow-xl z-40 overflow-hidden"
         >
           {#if buscandoSugerencias}
-            <li class="px-4 py-3 text-sm text-gray-500">Buscando en catalogo...</li>
+            <li class="px-4 py-3 text-sm text-gray-500">Buscando en inventario...</li>
           {:else if sinResultados}
             <li class="px-4 py-3 text-sm text-gray-500">Sin resultados para "{productoNombre}".</li>
           {/if}
