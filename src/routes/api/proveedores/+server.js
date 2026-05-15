@@ -1,32 +1,11 @@
 import { json } from "@sveltejs/kit";
 import { query } from "$lib/server/db";
-import { obtenerProveedoresAlegra } from "$lib/server/alegra.js";
-import {
-  cacheExpirado,
-  cacheVacio,
-  guardarProveedores,
-} from "$lib/server/catalogCache.js";
+import { maybeRefreshProveedores } from "$lib/server/catalogCache.js";
 
 export async function GET({ url }) {
   try {
     const force = url.searchParams.get("refresh") === "1";
-    const debeSincronizar =
-      force ||
-      (await cacheVacio("proveedores")) ||
-      (await cacheExpirado("proveedores"));
-    let syncError = null;
-
-    if (debeSincronizar) {
-      try {
-        const proveedoresAlegra = await obtenerProveedoresAlegra();
-        if (proveedoresAlegra.length > 0) {
-          await guardarProveedores(proveedoresAlegra);
-        }
-      } catch (err) {
-        // Permitir responder desde cache local si Alegra no está disponible.
-        syncError = err;
-      }
-    }
+    const { syncError } = await maybeRefreshProveedores(force);
 
     const { rows } = await query(
       `

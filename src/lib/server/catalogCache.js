@@ -39,6 +39,47 @@ export async function cacheExpiradoProductos() {
   return ultimo.getTime() < limite;
 }
 
+/** Catálogo vacío: sync bloqueante. Caducado: sync en segundo plano. */
+export async function maybeRefreshProductosCatalog() {
+  const vacio = await cacheVacio("productos_catalogo");
+  const expirado = await cacheExpiradoProductos();
+
+  if (vacio) {
+    await sincronizarProductosCompleto();
+  } else if (expirado) {
+    void sincronizarProductosCompleto().catch((e) => {
+      console.warn(
+        "[catalog] sync productos en segundo plano:",
+        e?.message || e,
+      );
+    });
+  }
+}
+
+/**
+ * @param {boolean} force
+ * @returns {Promise<{ syncError: Error | null }>}
+ */
+export async function maybeRefreshProveedores(force = false) {
+  const debe =
+    force ||
+    (await cacheVacio("proveedores")) ||
+    (await cacheExpirado("proveedores"));
+
+  let syncError = null;
+  if (debe) {
+    try {
+      const proveedoresAlegra = await obtenerProveedoresAlegra();
+      if (proveedoresAlegra.length > 0) {
+        await guardarProveedores(proveedoresAlegra);
+      }
+    } catch (err) {
+      syncError = err instanceof Error ? err : new Error(String(err));
+    }
+  }
+  return { syncError };
+}
+
 export async function guardarProveedores(items) {
   for (const item of items) {
     await query(
