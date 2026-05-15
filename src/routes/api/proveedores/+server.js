@@ -1,11 +1,21 @@
 import { json } from "@sveltejs/kit";
 import { query } from "$lib/server/db";
-import { maybeRefreshProveedores } from "$lib/server/catalogCache.js";
+import { sincronizarProveedoresLocales } from "$lib/server/catalogSources.js";
+import { isCatalogDbConfigured } from "$lib/server/catalogDb.js";
 
-export async function GET({ url }) {
+export async function GET() {
+  if (!isCatalogDbConfigured()) {
+    return json(
+      {
+        message: "Catálogo no configurado",
+        detail: "Define DATABASE_CATALOGO_URL en el entorno.",
+      },
+      { status: 503 },
+    );
+  }
+
   try {
-    const force = url.searchParams.get("refresh") === "1";
-    const { syncError } = await maybeRefreshProveedores(force);
+    await sincronizarProveedoresLocales();
 
     const { rows } = await query(
       `
@@ -14,12 +24,6 @@ export async function GET({ url }) {
         ORDER BY nombre ASC
       `,
     );
-
-    if (rows.length === 0 && syncError) {
-      throw new Error(
-        `Fallo de sincronización con Alegra: ${syncError.message}`,
-      );
-    }
 
     return json(rows);
   } catch (error) {
