@@ -14,6 +14,24 @@
 
   const flipDuration = 200;
   let columnaActiva = '';
+  let busquedaProveedor = '';
+
+  function normalizarTexto(texto) {
+    return (texto || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .trim();
+  }
+
+  $: proveedoresFiltrados = (() => {
+    const q = normalizarTexto(busquedaProveedor);
+    if (!q) return $proveedores;
+    return $proveedores.filter(
+      (p) =>
+        normalizarTexto(p.nombre).includes(q) || p.id === $filtroProveedor
+    );
+  })();
 
   onMount(() => {
     if (!browser) return;
@@ -95,9 +113,37 @@
 <div class="flex flex-col h-full">
 
   <!-- TOOLBAR -->
-  <div class="bg-white border-b border-gray-200 px-4 py-2 flex items-center gap-3 flex-wrap">
-    <span class="text-sm font-semibold text-gray-600">Filtrar "Lista de Compras":</span>
-    <div class="flex gap-2 flex-wrap">
+  <div class="bg-white border-b border-gray-200 px-4 py-3 space-y-2">
+    <div class="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
+      <span class="text-sm font-semibold text-gray-600 shrink-0">Filtrar "Lista de Compras":</span>
+      <div class="relative flex-1 max-w-md">
+        <input
+          type="search"
+          bind:value={busquedaProveedor}
+          placeholder="Buscar proveedor..."
+          aria-label="Buscar proveedor"
+          class="input-field text-sm py-2 pl-9 pr-8"
+        />
+        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" aria-hidden="true">🔍</span>
+        {#if busquedaProveedor}
+          <button
+            type="button"
+            class="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 px-1"
+            aria-label="Limpiar busqueda de proveedor"
+            on:click={() => { busquedaProveedor = ''; }}
+          >
+            ✕
+          </button>
+        {/if}
+      </div>
+      {#if busquedaProveedor.trim()}
+        <span class="text-xs text-gray-500 shrink-0">
+          {proveedoresFiltrados.length} de {$proveedores.length}
+        </span>
+      {/if}
+    </div>
+
+    <div class="flex gap-2 flex-wrap items-center">
       <button
         on:click={() => filtroProveedor.set(null)}
         class="px-3 py-1 rounded-full text-xs font-medium transition-colors border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
@@ -110,7 +156,7 @@
       >
         Todos
       </button>
-      {#each $proveedores as p}
+      {#each proveedoresFiltrados as p}
         <button
           on:click={() => filtroProveedor.set(p.id)}
           class="px-3 py-1 rounded-full text-xs font-medium transition-colors border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
@@ -124,6 +170,9 @@
           {p.nombre}
         </button>
       {/each}
+      {#if busquedaProveedor.trim() && proveedoresFiltrados.length === 0}
+        <span class="text-xs text-gray-500 italic px-1">Sin proveedores que coincidan.</span>
+      {/if}
     </div>
   </div>
 
