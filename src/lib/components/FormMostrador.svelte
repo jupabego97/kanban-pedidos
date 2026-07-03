@@ -1,7 +1,8 @@
 <script>
-  import { buscarProductos, crearSolicitud } from '$lib/supabase.js';
+  import { buscarProductos, crearSolicitud } from '$lib/apiClient.js';
   import { proveedores, notificacion } from '$lib/stores.js';
   import { iniciarMedicion, finalizarMedicion, registrarErrorFormulario } from '$lib/uxMetrics.js';
+  import ConfirmarProductoModal from './ConfirmarProductoModal.svelte';
 
   let productoNombre = '';
   let tipo = 'Agotado';
@@ -15,6 +16,9 @@
   let enviando = false;
   let exitoso = false;
   let error = '';
+  let mostrarModalConfirmacion = false;
+  /** @type {object | null} */
+  let productoPendienteConfirmacion = null;
   let inputRef;
   let debounceTimer;
 
@@ -49,7 +53,7 @@
         sugerenciaActiva = sugerencias.length > 0 ? 0 : -1;
         sinResultados = sugerencias.length === 0;
         if (pareceCodigoBarras(q) && sugerencias.length === 1) {
-          seleccionarSugerencia(sugerencias[0]);
+          abrirConfirmacion(sugerencias[0]);
         }
       } catch (e) {
         error = 'No se pudo buscar en el catálogo.';
@@ -64,6 +68,32 @@
     productoNombre = s.nombre;
     proveedorId = s.proveedor_id ?? null;
     limpiarSugerencias();
+  }
+
+  function abrirConfirmacion(s) {
+    productoPendienteConfirmacion = s;
+    mostrarModalConfirmacion = true;
+    limpiarSugerencias();
+  }
+
+  function cerrarModalConfirmacion() {
+    mostrarModalConfirmacion = false;
+    productoPendienteConfirmacion = null;
+  }
+
+  function onConfirmarProducto() {
+    if (productoPendienteConfirmacion) {
+      seleccionarSugerencia(productoPendienteConfirmacion);
+    }
+    cerrarModalConfirmacion();
+    inputRef?.focus();
+  }
+
+  function onRechazarProducto() {
+    productoNombre = '';
+    proveedorId = null;
+    cerrarModalConfirmacion();
+    inputRef?.focus();
   }
 
   function cerrarSugerencias() {
@@ -138,7 +168,7 @@
         return;
       }
       if (pareceCodigoBarras(productoNombre) && sugerencias.length === 1) {
-        seleccionarSugerencia(sugerencias[0]);
+        abrirConfirmacion(sugerencias[0]);
         return;
       }
       handleSubmit();
@@ -306,3 +336,11 @@
 
   </form>
 </div>
+
+{#if mostrarModalConfirmacion && productoPendienteConfirmacion}
+  <ConfirmarProductoModal
+    producto={productoPendienteConfirmacion}
+    on:confirm={onConfirmarProducto}
+    on:reject={onRechazarProducto}
+  />
+{/if}

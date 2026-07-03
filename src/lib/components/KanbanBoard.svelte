@@ -2,7 +2,7 @@
   import { onMount } from 'svelte';
   import { dndzone } from 'svelte-dnd-action';
   import { flip } from 'svelte/animate';
-  import { actualizarEstado } from '$lib/supabase.js';
+  import { actualizarEstado } from '$lib/apiClient.js';
   import { browser } from '$app/environment';
   import { solicitudes, proveedores, filtroProveedor, tableroData, notificacion } from '$lib/stores.js';
   import { iniciarMedicion, finalizarMedicion } from '$lib/uxMetrics.js';
@@ -41,27 +41,38 @@
     const items = e.detail.items;
     columnas = columnas.map((c) => (c.id === colId ? { ...c, items } : c));
 
-    // Actualizar en Supabase y en el store global
     const cambios = items.filter((item) => item.estado !== colId);
     if (cambios.length === 0) return;
     const medicion = iniciarMedicion('movimientoMs');
 
-    try {
-      await Promise.all(
-        cambios.map((item) =>
-          actualizarEstado(item.id, colId).then(() => {
-            solicitudes.update((prev) =>
-              prev.map((s) => (s.id === item.id ? { ...s, estado: colId } : s))
-            );
-          })
-        )
+    const resultados = await Promise.allSettled(
+      cambios.map((item) => actualizarEstado(item.id, colId))
+    );
+
+    const exitosos = cambios.filter((_, idx) => resultados[idx].status === 'fulfilled');
+    const fallidos = cambios.length - exitosos.length;
+
+    if (exitosos.length > 0) {
+      solicitudes.update((prev) =>
+        prev.map((s) => {
+          const cambio = exitosos.find((item) => item.id === s.id);
+          return cambio ? { ...s, estado: colId } : s;
+        })
       );
-      const cantidadTexto = cambios.length === 1 ? '1 tarjeta movida' : `${cambios.length} tarjetas movidas`;
-      finalizarMedicion(medicion);
-      notificacion.set({ tipo: 'success', mensaje: `${cantidadTexto} a "${COLOR_LABEL[colId]}".` });
-    } catch (error) {
-      notificacion.set({ tipo: 'error', mensaje: 'No se pudo guardar el cambio de estado. Intenta otra vez.' });
     }
+
+    if (fallidos > 0) {
+      solicitudes.update((prev) => prev);
+      notificacion.set({
+        tipo: 'error',
+        mensaje: 'No se pudo guardar el cambio de estado. Intenta otra vez.'
+      });
+      return;
+    }
+
+    const cantidadTexto = exitosos.length === 1 ? '1 tarjeta movida' : `${exitosos.length} tarjetas movidas`;
+    finalizarMedicion(medicion);
+    notificacion.set({ tipo: 'success', mensaje: `${cantidadTexto} a "${COLOR_LABEL[colId]}".` });
   }
 
   const COLOR_HEADER = {

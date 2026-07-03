@@ -1,6 +1,6 @@
 import { writable, derived } from "svelte/store";
 
-// Todas las solicitudes cargadas desde Supabase
+// Todas las solicitudes cargadas desde la API
 export const solicitudes = writable([]);
 
 // Proveedores disponibles

@@ -1,6 +1,52 @@
 import { json } from "@sveltejs/kit";
 import { query } from "$lib/server/db";
 
+const TIPOS_VALIDOS = new Set(["Agotado", "Nuevo"]);
+const ESTADOS_VALIDOS = new Set([
+  "solicitudes",
+  "analisis",
+  "por_pedir",
+  "en_camino",
+  "recibido",
+]);
+
+function validarSolicitud(payload) {
+  const producto_nombre = payload.producto_nombre?.trim();
+  if (!producto_nombre) {
+    return { ok: false, message: "El nombre del producto es obligatorio." };
+  }
+
+  const tipo = payload.tipo ?? "Agotado";
+  if (!TIPOS_VALIDOS.has(tipo)) {
+    return { ok: false, message: "Tipo de solicitud invalido." };
+  }
+
+  const estado = payload.estado ?? "solicitudes";
+  if (!ESTADOS_VALIDOS.has(estado)) {
+    return { ok: false, message: "Estado de solicitud invalido." };
+  }
+
+  const cantidad_pedida = Number(payload.cantidad_pedida ?? 1);
+  if (!Number.isInteger(cantidad_pedida) || cantidad_pedida < 1) {
+    return {
+      ok: false,
+      message: "La cantidad pedida debe ser un entero positivo.",
+    };
+  }
+
+  return {
+    ok: true,
+    data: {
+      producto_nombre,
+      tipo,
+      proveedor_id: payload.proveedor_id ?? null,
+      contacto_cliente: payload.contacto_cliente?.trim() || null,
+      cantidad_pedida,
+      estado,
+    },
+  };
+}
+
 export async function GET() {
   try {
     const { rows } = await query(
@@ -34,14 +80,20 @@ export async function GET() {
 export async function POST({ request }) {
   try {
     const payload = await request.json();
+    const validacion = validarSolicitud(payload);
+
+    if (!validacion.ok) {
+      return json({ message: validacion.message }, { status: 400 });
+    }
+
     const {
       producto_nombre,
       tipo,
-      proveedor_id = null,
-      contacto_cliente = null,
-      cantidad_pedida = 1,
-      estado = "solicitudes",
-    } = payload;
+      proveedor_id,
+      contacto_cliente,
+      cantidad_pedida,
+      estado,
+    } = validacion.data;
 
     const { rows } = await query(
       `
@@ -57,10 +109,10 @@ export async function POST({ request }) {
         RETURNING *
       `,
       [
-        producto_nombre?.trim(),
+        producto_nombre,
         tipo,
         proveedor_id,
-        contacto_cliente?.trim() || null,
+        contacto_cliente,
         cantidad_pedida,
         estado,
       ],

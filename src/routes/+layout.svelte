@@ -1,7 +1,7 @@
 <script>
   import '../app.css';
   import { onMount, onDestroy } from 'svelte';
-  import { getSolicitudes, getProveedores, suscribirSolicitudes } from '$lib/supabase.js';
+  import { getSolicitudes, getProveedores, suscribirSolicitudes } from '$lib/apiClient.js';
   import { solicitudes, proveedores, cargando, vistaActiva, errorCargaInicial, notificacion } from '$lib/stores.js';
 
   let cancelarSuscripcion;

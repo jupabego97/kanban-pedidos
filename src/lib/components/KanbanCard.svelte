@@ -1,5 +1,5 @@
 <script>
-  import { actualizarCantidad, eliminarSolicitud } from '$lib/supabase.js';
+  import { actualizarCantidad, eliminarSolicitud } from '$lib/apiClient.js';
   import { solicitudes, notificacion } from '$lib/stores.js';
 
   export let item;

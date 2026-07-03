@@ -1,9 +1,9 @@
 import { json } from "@sveltejs/kit";
 import { query } from "$lib/server/db";
-import { sincronizarProveedoresLocales } from "$lib/server/catalogSources.js";
+import { maybeRefreshProveedores } from "$lib/server/catalogCache.js";
 import { isCatalogDbConfigured } from "$lib/server/catalogDb.js";
 
-export async function GET() {
+export async function GET({ url }) {
   if (!isCatalogDbConfigured()) {
     return json(
       {
@@ -15,7 +15,18 @@ export async function GET() {
   }
 
   try {
-    await sincronizarProveedoresLocales();
+    const force = url.searchParams.get("refresh") === "1";
+    const { syncError } = await maybeRefreshProveedores(force);
+
+    if (syncError && force) {
+      return json(
+        {
+          message: "No se pudieron sincronizar los proveedores",
+          detail: syncError.message,
+        },
+        { status: 500 },
+      );
+    }
 
     const { rows } = await query(
       `
