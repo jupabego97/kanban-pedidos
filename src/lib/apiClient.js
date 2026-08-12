@@ -97,7 +97,6 @@ export function suscribirSolicitudes(callback, intervalMs = 7000) {
     }
   };
 
-  tick();
   const timer = setInterval(tick, intervalMs);
 
   return () => {

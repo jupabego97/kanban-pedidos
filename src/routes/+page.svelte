@@ -1,7 +1,6 @@
 <script>
   import { vistaActiva, cargando, solicitudes, errorCargaInicial } from '$lib/stores.js';
   import FormMostrador from '$lib/components/FormMostrador.svelte';
-  import KanbanBoard from '$lib/components/KanbanBoard.svelte';
 </script>
 
 {#if $cargando}
@@ -25,7 +24,13 @@
         <p class="mt-1 text-xs text-gray-500">Registra faltantes de electrónica en Mostrador para comenzar.</p>
       </div>
     {:else}
-      <KanbanBoard />
+      {#await import('$lib/components/KanbanBoard.svelte')}
+        <div class="flex items-center justify-center h-full">
+          <div class="inline-block w-8 h-8 border-4 border-blue-700 border-t-transparent rounded-full animate-spin"></div>
+        </div>
+      {:then { default: KanbanBoard }}
+        <KanbanBoard />
+      {/await}
     {/if}
   </div>
 {/if}
