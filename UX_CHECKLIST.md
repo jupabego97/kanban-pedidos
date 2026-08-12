@@ -18,7 +18,6 @@ Nota: el resumen en memoria se puede inspeccionar en consola importando `obtener
 
 ## Flujo Kanban
 
-- [ ] El filtro por proveedor se mantiene al cambiar de vista o recargar.
 - [ ] Al arrastrar, la columna destino se resalta visualmente.
 - [ ] Al soltar tarjetas, se muestra confirmacion no intrusiva.
 - [ ] Si falla el guardado de estado, aparece mensaje de error.
