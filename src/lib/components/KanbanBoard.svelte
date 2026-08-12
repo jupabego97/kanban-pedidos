@@ -80,9 +80,9 @@
 
   <!-- TABLERO -->
   <div class="flex-1 overflow-x-auto overflow-y-hidden">
-    <div class="flex gap-3 h-full p-4 min-w-max">
+    <div class="flex gap-3 h-full p-4 min-w-full">
       {#each columnas as col (col.id)}
-        <div class="flex flex-col w-72 flex-shrink-0 rounded-2xl border {col.color} overflow-hidden">
+        <div class="flex flex-col flex-1 min-w-[14rem] rounded-2xl border {col.color} overflow-hidden">
 
           <!-- CABECERA COLUMNA -->
           <div class="px-3 py-2.5 {COLOR_HEADER[col.id]} flex items-center justify-between">
