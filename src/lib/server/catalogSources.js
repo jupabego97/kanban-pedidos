@@ -80,18 +80,16 @@ export async function sincronizarProveedoresLocales() {
     return 0;
   }
 
-  for (const nombre of nombres) {
-    const alegra_id = `catalog:${nombre}`;
-    await query(
-      `
-        INSERT INTO proveedores (alegra_id, nombre, dias_entrega, actualizado_en)
-        VALUES ($1, $2, NULL, NOW())
-        ON CONFLICT (nombre)
-        DO UPDATE SET actualizado_en = NOW()
-      `,
-      [alegra_id, nombre],
-    );
-  }
+  await query(
+    `
+      INSERT INTO proveedores (alegra_id, nombre, dias_entrega, actualizado_en)
+      SELECT 'catalog:' || n, n, NULL, NOW()
+      FROM unnest($1::text[]) AS n
+      ON CONFLICT (nombre)
+      DO UPDATE SET actualizado_en = NOW()
+    `,
+    [nombres],
+  );
 
   await query(
     `

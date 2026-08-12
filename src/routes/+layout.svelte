@@ -4,6 +4,12 @@
   import { getSolicitudes, getProveedores, suscribirSolicitudes } from '$lib/apiClient.js';
   import { solicitudes, proveedores, cargando, vistaActiva, errorCargaInicial, notificacion } from '$lib/stores.js';
 
+  export let data;
+
+  $: solicitudes.set(data.solicitudes);
+  $: proveedores.set(data.proveedores);
+  $: errorCargaInicial.set(data.error || '');
+
   let cancelarSuscripcion;
   let notificacionTimer;
 
@@ -26,12 +32,9 @@
     notificacionTimer = setTimeout(() => notificacion.set(null), 2800);
   }
 
-  onMount(async () => {
-    await cargarDatosIniciales();
-
-    // Sincronización periódica desde API propia
-    cancelarSuscripcion = suscribirSolicitudes((data) => {
-      solicitudes.set(data);
+  onMount(() => {
+    cancelarSuscripcion = suscribirSolicitudes((next) => {
+      solicitudes.set(next);
     });
   });
 

@@ -10,7 +10,7 @@ export const proveedores = writable([]);
 export const vistaActiva = writable("mostrador");
 
 // Cargando datos iniciales
-export const cargando = writable(true);
+export const cargando = writable(false);
 export const errorCargaInicial = writable("");
 
 // Notificaciones globales para feedback no intrusivo

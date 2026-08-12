@@ -3,6 +3,8 @@ import { env } from "$env/dynamic/private";
 
 let pool;
 let schemaReady = false;
+/** @type {Promise<void> | null} */
+let schemaPromise = null;
 
 function getConnectionString() {
   return env.DATABASE_PUBLIC_URL || env.DATABASE_URL;
@@ -31,7 +33,20 @@ export function getPool() {
 
 async function ensureSchema() {
   if (schemaReady) return;
+  if (!schemaPromise) {
+    schemaPromise = applySchema()
+      .then(() => {
+        schemaReady = true;
+      })
+      .catch((err) => {
+        schemaPromise = null;
+        throw err;
+      });
+  }
+  await schemaPromise;
+}
 
+async function applySchema() {
   await queryRaw(`
     CREATE TABLE IF NOT EXISTS proveedores (
       id BIGSERIAL PRIMARY KEY,
@@ -143,8 +158,6 @@ async function ensureSchema() {
     ON productos_catalogo(referencia)
     WHERE referencia IS NOT NULL;
   `);
-
-  schemaReady = true;
 }
 
 async function queryRaw(text, values = []) {
