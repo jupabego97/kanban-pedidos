@@ -95,15 +95,6 @@
         ×{item.cantidad_pedida}
       </button>
     {/if}
-
-    {#if item.proveedores}
-      <span class="text-xs text-gray-400 font-medium truncate">
-        {item.proveedores.nombre}
-        {#if item.proveedores.dias_entrega}
-          · {item.proveedores.dias_entrega}d
-        {/if}
-      </span>
-    {/if}
   </div>
   {#if errorCantidad}
     <p class="text-xs text-red-600 mb-2" role="alert">{errorCantidad}</p>

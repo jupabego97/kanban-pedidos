@@ -1,10 +1,8 @@
 <script>
-  import { onMount } from 'svelte';
   import { dndzone } from 'svelte-dnd-action';
   import { flip } from 'svelte/animate';
   import { actualizarEstado } from '$lib/apiClient.js';
-  import { browser } from '$app/environment';
-  import { solicitudes, proveedores, filtroProveedor, tableroData, notificacion } from '$lib/stores.js';
+  import { solicitudes, tableroData, notificacion } from '$lib/stores.js';
   import { iniciarMedicion, finalizarMedicion } from '$lib/uxMetrics.js';
   import KanbanCard from './KanbanCard.svelte';
 
@@ -14,38 +12,6 @@
 
   const flipDuration = 200;
   let columnaActiva = '';
-  let busquedaProveedor = '';
-
-  function normalizarTexto(texto) {
-    return (texto || '')
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .toLowerCase()
-      .trim();
-  }
-
-  $: proveedoresFiltrados = (() => {
-    const q = normalizarTexto(busquedaProveedor);
-    if (!q) return $proveedores;
-    return $proveedores.filter(
-      (p) =>
-        normalizarTexto(p.nombre).includes(q) || p.id === $filtroProveedor
-    );
-  })();
-
-  onMount(() => {
-    if (!browser) return;
-    const guardado = window.localStorage.getItem('filtroProveedorKanban');
-    if (guardado) {
-      const numero = Number(guardado);
-      filtroProveedor.set(Number.isNaN(numero) ? null : numero);
-    }
-  });
-
-  $: if (browser) {
-    const valor = $filtroProveedor === null ? '' : String($filtroProveedor);
-    window.localStorage.setItem('filtroProveedorKanban', valor);
-  }
 
   function handleDndConsider(colId, e) {
     columnaActiva = colId;
@@ -112,75 +78,11 @@
 
 <div class="flex flex-col h-full">
 
-  <!-- TOOLBAR -->
-  <div class="bg-white border-b border-gray-200 px-4 py-3 space-y-2">
-    <div class="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
-      <span class="text-sm font-semibold text-gray-600 shrink-0">Filtrar "Lista de Compras":</span>
-      <div class="relative flex-1 max-w-md">
-        <input
-          type="search"
-          bind:value={busquedaProveedor}
-          placeholder="Buscar proveedor..."
-          aria-label="Buscar proveedor"
-          class="input-field text-sm py-2 pl-9 pr-8"
-        />
-        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" aria-hidden="true">🔍</span>
-        {#if busquedaProveedor}
-          <button
-            type="button"
-            class="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 px-1"
-            aria-label="Limpiar busqueda de proveedor"
-            on:click={() => { busquedaProveedor = ''; }}
-          >
-            ✕
-          </button>
-        {/if}
-      </div>
-      {#if busquedaProveedor.trim()}
-        <span class="text-xs text-gray-500 shrink-0">
-          {proveedoresFiltrados.length} de {$proveedores.length}
-        </span>
-      {/if}
-    </div>
-
-    <div class="flex gap-2 flex-wrap items-center">
-      <button
-        on:click={() => filtroProveedor.set(null)}
-        class="px-3 py-1 rounded-full text-xs font-medium transition-colors border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
-        class:bg-blue-700={$filtroProveedor === null}
-        class:text-white={$filtroProveedor === null}
-        class:border-blue-700={$filtroProveedor === null}
-        class:bg-white={$filtroProveedor !== null}
-        class:text-gray-600={$filtroProveedor !== null}
-        class:border-gray-300={$filtroProveedor !== null}
-      >
-        Todos
-      </button>
-      {#each proveedoresFiltrados as p}
-        <button
-          on:click={() => filtroProveedor.set(p.id)}
-          class="px-3 py-1 rounded-full text-xs font-medium transition-colors border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
-          class:bg-blue-700={$filtroProveedor === p.id}
-          class:text-white={$filtroProveedor === p.id}
-          class:border-blue-700={$filtroProveedor === p.id}
-          class:bg-white={$filtroProveedor !== p.id}
-          class:text-gray-600={$filtroProveedor !== p.id}
-          class:border-gray-300={$filtroProveedor !== p.id}
-        >
-          {p.nombre}
-        </button>
-      {/each}
-      {#if busquedaProveedor.trim() && proveedoresFiltrados.length === 0}
-        <span class="text-xs text-gray-500 italic px-1">Sin proveedores que coincidan.</span>
-      {/if}
-    </div>
-  </div>
-
   <!-- TABLERO -->
   <div class="flex-1 overflow-x-auto overflow-y-hidden">
-    <div class="flex gap-3 h-full p-4 min-w-max">
+    <div class="flex gap-3 h-full p-4 min-w-full">
       {#each columnas as col (col.id)}
-        <div class="flex flex-col w-72 flex-shrink-0 rounded-2xl border {col.color} overflow-hidden">
+        <div class="flex flex-col flex-1 min-w-[14rem] rounded-2xl border {col.color} overflow-hidden">
 
           <!-- CABECERA COLUMNA -->
           <div class="px-3 py-2.5 {COLOR_HEADER[col.id]} flex items-center justify-between">

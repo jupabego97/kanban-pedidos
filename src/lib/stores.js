@@ -6,9 +6,6 @@ export const solicitudes = writable([]);
 // Proveedores disponibles
 export const proveedores = writable([]);
 
-// Filtro activo de proveedor en el Kanban
-export const filtroProveedor = writable(null);
-
 // Vista activa: 'mostrador' | 'kanban'
 export const vistaActiva = writable("mostrador");
 
@@ -53,16 +50,10 @@ export const COLUMNAS = [
   },
 ];
 
-// Solicitudes agrupadas por columna, con filtro de proveedor aplicado
-export const tableroData = derived(
-  [solicitudes, filtroProveedor],
-  ([$solicitudes, $filtroProveedor]) => {
-    return COLUMNAS.map((col) => {
-      let items = $solicitudes.filter((s) => s.estado === col.id);
-      if ($filtroProveedor && col.id === "por_pedir") {
-        items = items.filter((s) => s.proveedor_id === $filtroProveedor);
-      }
-      return { ...col, items };
-    });
-  },
-);
+// Solicitudes agrupadas por columna
+export const tableroData = derived(solicitudes, ($solicitudes) => {
+  return COLUMNAS.map((col) => ({
+    ...col,
+    items: $solicitudes.filter((s) => s.estado === col.id),
+  }));
+});
