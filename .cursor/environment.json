@@ -1,0 +1,19 @@
+{
+  "name": "kanban-pedidos",
+  "user": "ubuntu",
+  "install": "bash .cursor/install.sh",
+  "start": "bash .cursor/start.sh",
+  "terminals": [
+    {
+      "name": "dev-server",
+      "command": "npm run dev -- --host 0.0.0.0 --port 5173",
+      "description": "Servidor de desarrollo de SvelteKit (Vite) en http://localhost:5173"
+    }
+  ],
+  "ports": [
+    {
+      "name": "web",
+      "port": 5173
+    }
+  ]
+}
