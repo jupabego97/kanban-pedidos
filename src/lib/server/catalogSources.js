@@ -16,15 +16,24 @@ const ITEMS_SELECT = `
  * @param {string} codigo
  */
 export async function buscarItemsPorCodigo(codigo) {
+  const codigoTrim = String(codigo ?? "").trim();
   const { rows } = await catalogQuery(
     `
       ${ITEMS_SELECT}
       WHERE codigo_barras = $1
+         OR TRIM(codigo_barras) = $1
+         OR TRIM(LEADING '0' FROM COALESCE(codigo_barras, '')) = TRIM(LEADING '0' FROM $1)
          OR CAST(id AS TEXT) = $1
-      ORDER BY nombre ASC
+      ORDER BY
+        CASE
+          WHEN codigo_barras = $1 THEN 0
+          WHEN TRIM(codigo_barras) = $1 THEN 1
+          ELSE 2
+        END,
+        nombre ASC
       LIMIT 8
     `,
-    [codigo],
+    [codigoTrim],
   );
   return rows.map(mapItemRow);
 }

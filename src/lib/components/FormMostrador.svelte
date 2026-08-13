@@ -21,6 +21,8 @@
   let productoPendienteConfirmacion = null;
   let inputRef;
   let debounceTimer;
+  let busquedaSeq = 0;
+  let consultandoCodigo = false;
 
   /** @param {string} q */
   function pareceCodigoBarras(q) {
@@ -36,6 +38,32 @@
     buscandoSugerencias = false;
   }
 
+  /**
+   * @param {string} q
+   * @returns {Promise<object[] | null>}
+   */
+  async function buscarAhora(q) {
+    const seq = ++busquedaSeq;
+    buscandoSugerencias = true;
+    sinResultados = false;
+    mostrarSugerencias = true;
+    try {
+      const resultados = await buscarProductos(q);
+      if (seq !== busquedaSeq) return null;
+      sugerencias = resultados;
+      sugerenciaActiva = resultados.length > 0 ? 0 : -1;
+      sinResultados = resultados.length === 0;
+      return resultados;
+    } catch (err) {
+      if (seq !== busquedaSeq) return null;
+      error = 'No se pudo buscar en el catálogo.';
+      limpiarSugerencias();
+      return null;
+    } finally {
+      if (seq === busquedaSeq) buscandoSugerencias = false;
+    }
+  }
+
   async function onInputProducto(e) {
     const q = e.target.value;
     productoNombre = q;
@@ -47,27 +75,50 @@
     buscandoSugerencias = true;
     sinResultados = false;
     mostrarSugerencias = true;
-    debounceTimer = setTimeout(async () => {
-      try {
-        sugerencias = await buscarProductos(q);
-        sugerenciaActiva = sugerencias.length > 0 ? 0 : -1;
-        sinResultados = sugerencias.length === 0;
-        if (pareceCodigoBarras(q) && sugerencias.length === 1) {
-          abrirConfirmacion(sugerencias[0]);
-        }
-      } catch (e) {
-        error = 'No se pudo buscar en el catálogo.';
-        limpiarSugerencias();
-      } finally {
-        buscandoSugerencias = false;
-      }
+    debounceTimer = setTimeout(() => {
+      buscarAhora(q);
     }, 180);
+  }
+
+  /**
+   * Consulta el catálogo por código de barras y, si hay un único resultado,
+   * pregunta si se quiere registrar como faltante mostrando el nombre.
+   * @param {string} codigo
+   */
+  async function consultarYConfirmarPorCodigo(codigo) {
+    if (consultandoCodigo || mostrarModalConfirmacion) return;
+    const codigoTrim = codigo.trim();
+    error = '';
+    consultandoCodigo = true;
+    clearTimeout(debounceTimer);
+    try {
+      const resultados = await buscarAhora(codigoTrim);
+      if (!resultados) return;
+      if (resultados.length === 1) {
+        abrirConfirmacion(resultados[0]);
+        return;
+      }
+      if (resultados.length === 0) {
+        error = `No se encontró un producto con el código ${codigoTrim}.`;
+        limpiarSugerencias();
+      }
+    } finally {
+      consultandoCodigo = false;
+    }
   }
 
   function seleccionarSugerencia(s) {
     productoNombre = s.nombre;
     proveedorId = s.proveedor_id ?? null;
     limpiarSugerencias();
+  }
+
+  function onElegirSugerencia(s) {
+    if (pareceCodigoBarras(productoNombre)) {
+      abrirConfirmacion(s);
+      return;
+    }
+    seleccionarSugerencia(s);
   }
 
   function abrirConfirmacion(s) {
@@ -82,11 +133,11 @@
   }
 
   function onConfirmarProducto() {
-    if (productoPendienteConfirmacion) {
-      seleccionarSugerencia(productoPendienteConfirmacion);
-    }
+    const producto = productoPendienteConfirmacion;
     cerrarModalConfirmacion();
-    inputRef?.focus();
+    if (!producto) return;
+    seleccionarSugerencia(producto);
+    handleSubmit();
   }
 
   function onRechazarProducto() {
@@ -101,11 +152,15 @@
   }
 
   async function handleSubmit() {
-    if (enviando) return;
+    if (enviando || consultandoCodigo || mostrarModalConfirmacion) return;
     error = '';
     if (!productoNombre.trim()) {
       error = 'Ingresa el nombre del producto.';
       registrarErrorFormulario();
+      return;
+    }
+    if (pareceCodigoBarras(productoNombre)) {
+      await consultarYConfirmarPorCodigo(productoNombre);
       return;
     }
 
@@ -145,6 +200,7 @@
   }
 
   function handleKeydown(e) {
+    if (mostrarModalConfirmacion) return;
     if (e.key === 'Escape') {
       mostrarSugerencias = false;
       sugerenciaActiva = -1;
@@ -163,12 +219,21 @@
     }
     if (e.key === 'Enter') {
       e.preventDefault();
-      if (mostrarSugerencias && sugerenciaActiva >= 0 && sugerencias[sugerenciaActiva]) {
-        seleccionarSugerencia(sugerencias[sugerenciaActiva]);
+      if (pareceCodigoBarras(productoNombre)) {
+        if (
+          !buscandoSugerencias &&
+          sugerencias.length > 1 &&
+          sugerenciaActiva >= 0 &&
+          sugerencias[sugerenciaActiva]
+        ) {
+          abrirConfirmacion(sugerencias[sugerenciaActiva]);
+          return;
+        }
+        consultarYConfirmarPorCodigo(productoNombre);
         return;
       }
-      if (pareceCodigoBarras(productoNombre) && sugerencias.length === 1) {
-        abrirConfirmacion(sugerencias[0]);
+      if (mostrarSugerencias && sugerenciaActiva >= 0 && sugerencias[sugerenciaActiva]) {
+        onElegirSugerencia(sugerencias[sugerenciaActiva]);
         return;
       }
       handleSubmit();
@@ -179,7 +244,7 @@
 <div class="max-w-md mx-auto px-4 pt-6 pb-10">
   <h1 class="text-2xl font-bold text-gray-900 mb-1">Registrar faltante</h1>
   <p class="text-sm text-gray-500 mb-6">
-    Artículo de electrónica agotado o pedido por el cliente (cable, memoria, accesorio, etc.).
+    Escanea o escribe el código de barras y pulsa Enter para ver el nombre del producto y registrarlo como faltante.
   </p>
 
   <!-- ALERTA ÉXITO -->
@@ -199,70 +264,79 @@
   <form on:submit|preventDefault={handleSubmit} class="space-y-4">
 
     <!-- PRODUCTO (con autocompletado) -->
-    <div class="relative">
+    <div>
       <label class="block text-sm font-semibold text-gray-700 mb-1.5" for="producto">
         Producto <span class="text-red-500">*</span>
       </label>
-      <input
-        id="producto"
-        bind:this={inputRef}
-        type="text"
-        autocomplete="off"
-        placeholder="Ej: Memoria Micro SD 128GB"
-        value={productoNombre}
-        on:input={onInputProducto}
-        on:keydown={handleKeydown}
-        on:blur={cerrarSugerencias}
-        class="input-field text-base"
-        role="combobox"
-        aria-expanded={mostrarSugerencias}
-        aria-controls="lista-sugerencias-producto"
-        aria-activedescendant={sugerenciaActiva >= 0 ? `sugerencia-${sugerenciaActiva}` : undefined}
-      />
-      {#if mostrarSugerencias}
-        <ul
-          id="lista-sugerencias-producto"
-          role="listbox"
-          class="absolute left-0 right-0 top-full mt-1 bg-white border border-gray-200 rounded-xl shadow-xl z-40 overflow-hidden"
-        >
-          {#if buscandoSugerencias}
-            <li class="px-4 py-3 text-sm text-gray-500">Buscando en inventario...</li>
-          {:else if sinResultados}
-            <li class="px-4 py-3 text-sm text-gray-500">Sin resultados para "{productoNombre}".</li>
-          {/if}
-          {#each sugerencias as s, idx}
-            <li>
-              <button
-                type="button"
-                on:mousedown={() => seleccionarSugerencia(s)}
-                class="w-full text-left px-4 py-3 text-sm hover:bg-blue-50 transition-colors flex justify-between items-start gap-2"
-                class:bg-blue-50={sugerenciaActiva === idx}
-                role="option"
-                aria-selected={sugerenciaActiva === idx}
-                id={"sugerencia-" + idx}
-              >
-                <span class="min-w-0 flex-1">
-                  <span class="font-medium block">{s.nombre}</span>
-                  {#if s.barcode || s.referencia}
-                    <span class="text-[11px] text-gray-500 block mt-0.5">
-                      {#if s.barcode}
-                        EAN: {s.barcode}
-                      {/if}
-                      {#if s.referencia && s.referencia !== s.barcode}
-                        <span class:text-gray-400={s.barcode}> · Ref: {s.referencia}</span>
-                      {:else if !s.barcode && s.referencia}
-                        Ref: {s.referencia}
-                      {/if}
-                    </span>
+      <div class="relative">
+        <input
+          id="producto"
+          bind:this={inputRef}
+          type="text"
+          autocomplete="off"
+          enterkeyhint="search"
+          placeholder="Nombre o código de barras"
+          value={productoNombre}
+          on:input={onInputProducto}
+          on:keydown={handleKeydown}
+          on:blur={cerrarSugerencias}
+          class="input-field text-base"
+          role="combobox"
+          aria-expanded={mostrarSugerencias}
+          aria-controls="lista-sugerencias-producto"
+          aria-activedescendant={sugerenciaActiva >= 0 ? `sugerencia-${sugerenciaActiva}` : undefined}
+        />
+        {#if mostrarSugerencias}
+          <ul
+            id="lista-sugerencias-producto"
+            role="listbox"
+            class="absolute left-0 right-0 top-full mt-1 bg-white border border-gray-200 rounded-xl shadow-xl z-40 overflow-hidden"
+          >
+            {#if buscandoSugerencias}
+              <li class="px-4 py-3 text-sm text-gray-500">Buscando en inventario...</li>
+            {:else if sinResultados}
+              <li class="px-4 py-3 text-sm text-gray-500">Sin resultados para "{productoNombre}".</li>
+            {/if}
+            {#each sugerencias as s, idx}
+              <li>
+                <button
+                  type="button"
+                  on:mousedown={() => onElegirSugerencia(s)}
+                  class="w-full text-left px-4 py-3 text-sm hover:bg-blue-50 transition-colors flex justify-between items-start gap-2"
+                  class:bg-blue-50={sugerenciaActiva === idx}
+                  role="option"
+                  aria-selected={sugerenciaActiva === idx}
+                  id={"sugerencia-" + idx}
+                >
+                  <span class="min-w-0 flex-1">
+                    <span class="font-medium block">{s.nombre}</span>
+                    {#if s.barcode || s.referencia}
+                      <span class="text-[11px] text-gray-500 block mt-0.5">
+                        {#if s.barcode}
+                          EAN: {s.barcode}
+                        {/if}
+                        {#if s.referencia && s.referencia !== s.barcode}
+                          <span class:text-gray-400={s.barcode}> · Ref: {s.referencia}</span>
+                        {:else if !s.barcode && s.referencia}
+                          Ref: {s.referencia}
+                        {/if}
+                      </span>
+                    {/if}
+                  </span>
+                  {#if s.proveedores}
+                    <span class="text-xs text-gray-400 shrink-0">{s.proveedores.nombre}</span>
                   {/if}
-                </span>
-                {#if s.proveedores}
-                  <span class="text-xs text-gray-400 shrink-0">{s.proveedores.nombre}</span>
-                {/if}
-              </button>
-            </li>
-          {/each}
-        </ul>
+                </button>
+              </li>
+            {/each}
+          </ul>
+        {/if}
+      </div>
+      <p class="mt-1.5 text-xs text-gray-500">
+        Ingresa el código de barras y pulsa Enter para consultar el producto.
+      </p>
+      {#if consultandoCodigo}
+        <p class="mt-1 text-xs font-medium text-blue-700">Consultando producto...</p>
       {/if}
     </div>
 
@@ -326,9 +400,11 @@
     </div>
 
     <!-- SUBMIT -->
-    <button type="submit" disabled={enviando} class="btn-primary mt-2">
+    <button type="submit" disabled={enviando || consultandoCodigo} class="btn-primary mt-2">
       {#if enviando}
         <span class="inline-block animate-spin mr-2">⏳</span> Registrando...
+      {:else if consultandoCodigo}
+        Consultando producto...
       {:else}
         ＋ Registrar Faltante
       {/if}
