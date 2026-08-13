@@ -12,6 +12,7 @@ Nota: el resumen en memoria se puede inspeccionar en consola importando `obtener
 
 - [ ] El campo producto muestra estados de busqueda y sin resultados.
 - [ ] Se puede navegar sugerencias con teclado (`ArrowUp`, `ArrowDown`, `Enter`, `Escape`).
+- [ ] Al ingresar un codigo de barras y pulsar Enter se consulta el producto, se muestra el nombre y se pregunta si se registra como faltante.
 - [ ] No hay doble envio cuando el boton esta en estado de envio.
 - [ ] Al guardar exitoso se limpia formulario y vuelve el foco al producto.
 - [ ] Se muestra notificacion de exito o error.
