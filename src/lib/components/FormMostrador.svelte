@@ -1,4 +1,5 @@
 <script>
+  import { pareceCodigoBarras } from "$lib/pareceCodigoBarras.js";
   import { buscarProductos, crearSolicitud } from '$lib/apiClient.js';
   import { proveedores, notificacion } from '$lib/stores.js';
   import { iniciarMedicion, finalizarMedicion, registrarErrorFormulario } from '$lib/uxMetrics.js';
@@ -23,12 +24,6 @@
   let debounceTimer;
   let busquedaSeq = 0;
   let consultandoCodigo = false;
-
-  /** @param {string} q */
-  function pareceCodigoBarras(q) {
-    const t = q.trim();
-    return t.length >= 6 && /^\d+$/.test(t);
-  }
 
   function limpiarSugerencias() {
     sugerencias = [];
@@ -135,9 +130,14 @@
   function onConfirmarProducto() {
     const producto = productoPendienteConfirmacion;
     cerrarModalConfirmacion();
-    if (!producto) return;
+    if (!producto?.nombre || pareceCodigoBarras(producto.nombre)) {
+      error = 'No se puede registrar un código de barras como nombre del producto.';
+      registrarErrorFormulario();
+      inputRef?.focus();
+      return;
+    }
     seleccionarSugerencia(producto);
-    handleSubmit();
+    registrarFaltante(producto.nombre);
   }
 
   function onRechazarProducto() {
@@ -163,12 +163,26 @@
       await consultarYConfirmarPorCodigo(productoNombre);
       return;
     }
+    await registrarFaltante(productoNombre.trim());
+  }
+
+  /**
+   * @param {string} nombreProducto
+   */
+  async function registrarFaltante(nombreProducto) {
+    const nombre = String(nombreProducto ?? "").trim();
+    if (!nombre || pareceCodigoBarras(nombre)) {
+      error = 'No se puede registrar un código de barras como nombre del producto.';
+      registrarErrorFormulario();
+      return;
+    }
+    if (enviando) return;
 
     const medicion = iniciarMedicion('registroMs');
     enviando = true;
     try {
       await crearSolicitud({
-        producto_nombre: productoNombre.trim(),
+        producto_nombre: nombre,
         tipo,
         proveedor_id: proveedorId || null,
         contacto_cliente: contactoCliente.trim() || null,

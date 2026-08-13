@@ -1,3 +1,5 @@
+import { pareceCodigoBarras } from "../pareceCodigoBarras.js";
+
 const NOMBRE_KEYS = [
   "nombre",
   "name",
@@ -139,12 +141,6 @@ function firstString(obj, keys) {
  *   proveedores: { nombre: string } | null;
  * }} CatalogItem
  */
-
-/** @param {unknown} value */
-function pareceCodigoBarras(value) {
-  const t = String(value ?? "").trim();
-  return t.length >= 6 && /^\d+$/.test(t);
-}
 
 /**
  * @param {unknown} raw

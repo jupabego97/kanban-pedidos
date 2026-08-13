@@ -1,6 +1,7 @@
 <script>
   import { actualizarCantidad, eliminarSolicitud } from '$lib/apiClient.js';
   import { solicitudes, notificacion } from '$lib/stores.js';
+  import { pareceCodigoBarras } from '$lib/pareceCodigoBarras.js';
 
   export let item;
 
@@ -68,7 +69,11 @@
 >
   <!-- ENCABEZADO: nombre + badge tipo -->
   <div class="flex items-start justify-between gap-2 mb-2">
-    <p class="text-sm font-semibold text-gray-900 leading-snug flex-1">{item.producto_nombre}</p>
+    {#if pareceCodigoBarras(item.producto_nombre)}
+      <p class="text-sm font-semibold text-gray-900 leading-snug flex-1">Producto sin nombre</p>
+    {:else}
+      <p class="text-sm font-semibold text-gray-900 leading-snug flex-1">{item.producto_nombre}</p>
+    {/if}
     <span class={item.tipo === 'Agotado' ? 'badge-agotado' : 'badge-nuevo'}>
       {item.tipo === 'Agotado' ? '🔴' : '🔵'} {item.tipo}
     </span>

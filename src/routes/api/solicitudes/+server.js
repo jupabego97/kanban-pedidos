@@ -1,5 +1,6 @@
 import { json } from "@sveltejs/kit";
 import { query } from "$lib/server/db";
+import { pareceCodigoBarras } from "$lib/pareceCodigoBarras.js";
 
 const TIPOS_VALIDOS = new Set(["Agotado", "Nuevo"]);
 const ESTADOS_VALIDOS = new Set([
@@ -14,6 +15,13 @@ function validarSolicitud(payload) {
   const producto_nombre = payload.producto_nombre?.trim();
   if (!producto_nombre) {
     return { ok: false, message: "El nombre del producto es obligatorio." };
+  }
+  if (pareceCodigoBarras(producto_nombre)) {
+    return {
+      ok: false,
+      message:
+        "No se puede usar un código de barras como nombre. Confirma el producto del catálogo.",
+    };
   }
 
   const tipo = payload.tipo ?? "Agotado";
