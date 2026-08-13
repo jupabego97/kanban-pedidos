@@ -27,7 +27,22 @@ const BARCODE_KEYS = [
   "gtin",
 ];
 
-const REF_KEYS = ["referencia", "reference", "ref", "sku", "familia"];
+const REF_KEYS = [
+  "referencia",
+  "reference",
+  "ref",
+  "sku",
+  "familia",
+  "family_name",
+  "FAMILIA",
+];
+
+const PROVEEDOR_KEYS = [
+  "preferred_supplier_name",
+  "PROVEEDOR",
+  "proveedor",
+  "supplier",
+];
 
 /** @param {unknown} v */
 function maybeParseJson(v) {
@@ -52,6 +67,30 @@ function normalizeKey(key) {
 }
 
 /**
+ * Convierte customFields de Alegra [{ name, value }] en claves planas.
+ * @param {Record<string, unknown>} obj
+ */
+function flattenCustomFields(obj) {
+  /** @type {Record<string, unknown>} */
+  const out = {};
+  for (const key of ["customFields", "custom_fields"]) {
+    const fields = obj[key];
+    if (!Array.isArray(fields)) continue;
+    for (const field of fields) {
+      if (!field || typeof field !== "object") continue;
+      const rec = /** @type {Record<string, unknown>} */ (field);
+      const name = rec.name ?? rec.key ?? rec.label;
+      const value = rec.value ?? rec.valor;
+      if (name == null || value == null || String(value).trim() === "") continue;
+      const label = String(name);
+      out[label] = value;
+      out[normalizeKey(label)] = value;
+    }
+  }
+  return out;
+}
+
+/**
  * Une columnas del registro con JSON anidado (data, payload, etc.).
  * @param {unknown} raw
  * @returns {Record<string, unknown>}
@@ -68,7 +107,11 @@ export function unwrapItem(raw) {
       nested = { ...nested, ...parsed };
     }
   }
-  const merged = { ...nested, ...row };
+  const custom = {
+    ...flattenCustomFields(nested),
+    ...flattenCustomFields(row),
+  };
+  const merged = { ...nested, ...row, ...custom };
   /** @type {Record<string, unknown>} */
   const withNormalized = { ...merged };
   for (const [key, value] of Object.entries(merged)) {
@@ -93,7 +136,7 @@ function firstString(obj, keys) {
  *   barcode: string | null;
  *   referencia: string | null;
  *   proveedor_id: null;
- *   proveedores: null;
+ *   proveedores: { nombre: string } | null;
  * }} CatalogItem
  */
 
@@ -117,13 +160,14 @@ export function mapCatalogItem(raw, fallbackId) {
     (pareceCodigoBarras(fallbackId) ? String(fallbackId).trim() : "");
   if (!nombre) return null;
 
+  const proveedorNombre = firstString(obj, PROVEEDOR_KEYS);
   return {
     id: obj.id ?? fallbackId ?? barcode ?? nombre,
     nombre,
     barcode: barcode || null,
     referencia: firstString(obj, REF_KEYS) || null,
     proveedor_id: null,
-    proveedores: null,
+    proveedores: proveedorNombre ? { nombre: proveedorNombre } : null,
   };
 }
 

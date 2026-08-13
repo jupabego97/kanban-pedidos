@@ -198,7 +198,16 @@ export function barcodeWhereSql(source, param = 1) {
     parts.push(`${q}->>'codigo_barras' = $${param}`);
     parts.push(`${q}->>'barcode' = $${param}`);
     parts.push(`${q}->>'ean' = $${param}`);
-    parts.push(`${q}->>'nombre' ILIKE '%' || $${param} || '%'`);
+    parts.push(`EXISTS (
+          SELECT 1
+          FROM jsonb_array_elements(COALESCE((${q})::jsonb->'customFields', '[]'::jsonb)) cf
+          WHERE TRIM(cf->>'value') = $${param}
+            AND (
+              cf->>'name' ILIKE '%barras%'
+              OR cf->>'name' ILIKE '%barcode%'
+              OR cf->>'name' ILIKE '%ean%'
+            )
+        )`);
     parts.push(`CAST(${q} AS TEXT) LIKE '%' || $${param} || '%' ESCAPE '\\'`);
   }
   if (parts.length === 0) {
