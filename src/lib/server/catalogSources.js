@@ -6,6 +6,7 @@ import {
   isCatalogDbConfigured,
   isCatalogPostgresConfigured,
   isHttpCatalogUrl,
+  isSupabaseCatalog,
 } from "$lib/server/catalogDb.js";
 import {
   filterByBarcode,
@@ -13,6 +14,10 @@ import {
   mapCatalogItem,
   normalizeCatalogPayload,
 } from "$lib/server/catalogItemMap.js";
+import {
+  buscarItemsPorCodigoSupabase,
+  buscarItemsPorNombreSupabase,
+} from "$lib/server/catalogSupabase.js";
 import { query } from "$lib/server/db.js";
 
 export { isCatalogDbConfigured };
@@ -62,7 +67,7 @@ async function resolveCatalogItemsRelation() {
 
   throw new Error(
     lastError?.message ||
-      "No se encontró Tables/catalog_items. Define DATABASE_CATALOGO_URL y, si hace falta, CATALOGO_ITEMS_TABLE.",
+      "No se encontró catalog_items. Define PUBLIC_SUPABASE_URL.",
   );
 }
 
@@ -120,6 +125,7 @@ function catalogHttpUrls(base) {
     if (!cleaned.endsWith(".json")) urls.push(`${cleaned}.json`);
   }
   urls.push(
+    `${cleaned}/rest/v1/catalog_items`,
     `${cleaned}/Tables/catalog_items.json`,
     `${cleaned}/Tables/catalog_items`,
     `${cleaned}/tables/catalog_items`,
@@ -175,6 +181,9 @@ async function loadHttpCatalogItems() {
  * @param {string} codigo
  */
 export async function buscarItemsPorCodigo(codigo) {
+  if (isSupabaseCatalog()) {
+    return buscarItemsPorCodigoSupabase(codigo);
+  }
   if (isHttpCatalogUrl()) {
     return filterByBarcode(await loadHttpCatalogItems(), codigo);
   }
@@ -185,6 +194,9 @@ export async function buscarItemsPorCodigo(codigo) {
  * @param {string} texto
  */
 export async function buscarItemsPorNombre(texto) {
+  if (isSupabaseCatalog()) {
+    return buscarItemsPorNombreSupabase(texto);
+  }
   if (isHttpCatalogUrl()) {
     return filterByNombre(await loadHttpCatalogItems(), texto);
   }
@@ -205,6 +217,8 @@ export async function listarNombresProveedorCatalogo() {
 
 /** Copia proveedores del catálogo a la tabla local (FK de solicitudes). */
 export async function sincronizarProveedoresLocales() {
+  if (!isCatalogPostgresConfigured()) return 0;
+
   const nombres = await listarNombresProveedorCatalogo();
 
   if (nombres.length === 0) {

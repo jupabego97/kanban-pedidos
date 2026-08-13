@@ -27,7 +27,7 @@ export async function GET({ url }) {
       {
         message: "Catálogo no configurado",
         detail:
-          "Define DATABASE_CATALOGO_URL. Los productos se leen de Tables/catalog_items.",
+          "Define PUBLIC_SUPABASE_URL. Los productos se leen de catalog_items.",
       },
       { status: 503 },
     );

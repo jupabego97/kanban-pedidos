@@ -1,20 +1,48 @@
+import { env as publicEnv } from "$env/dynamic/public";
+import { env as privateEnv } from "$env/dynamic/private";
 import { Pool } from "pg";
-import { env } from "$env/dynamic/private";
 
 let catalogPool;
 
+function firstEnv(...values) {
+  for (const value of values) {
+    const t = String(value ?? "").trim();
+    if (t) return t;
+  }
+  return "";
+}
+
+export function getSupabaseUrl() {
+  return firstEnv(publicEnv.PUBLIC_SUPABASE_URL);
+}
+
+export function getSupabaseAnonKey() {
+  return firstEnv(
+    publicEnv.PUBLIC_SUPABASE_ANON_KEY,
+    publicEnv.PUBLIC_SUPABASE_KEY,
+    privateEnv.SUPABASE_ANON_KEY,
+    privateEnv.SUPABASE_SERVICE_ROLE_KEY,
+    privateEnv.CATALOGO_API_KEY,
+  );
+}
+
 export function getCatalogUrl() {
-  return (
-    env.CATALOGO_ITEMS_URL ||
-    env.DATABASE_CATALOGO_URL ||
-    env.DATABASE_CATALOGO_PUBLIC_URL ||
-    env.CATALOGO_DATABASE_URL ||
-    ""
-  ).trim();
+  return firstEnv(
+    getSupabaseUrl(),
+    privateEnv.CATALOGO_ITEMS_URL,
+    privateEnv.DATABASE_CATALOGO_URL,
+    privateEnv.DATABASE_CATALOGO_PUBLIC_URL,
+    privateEnv.CATALOGO_DATABASE_URL,
+  );
 }
 
 export function isHttpCatalogUrl(url = getCatalogUrl()) {
   return /^https?:\/\//i.test(url);
+}
+
+export function isSupabaseCatalog() {
+  const url = getCatalogUrl();
+  return Boolean(getSupabaseUrl()) || /supabase\.(co|in)/i.test(url);
 }
 
 export function isCatalogDbConfigured() {
@@ -27,12 +55,7 @@ export function isCatalogPostgresConfigured() {
 }
 
 export function getCatalogApiKey() {
-  return (
-    env.CATALOGO_API_KEY ||
-    env.SUPABASE_ANON_KEY ||
-    env.SUPABASE_SERVICE_ROLE_KEY ||
-    ""
-  ).trim();
+  return getSupabaseAnonKey();
 }
 
 export function getCatalogPool() {
@@ -40,12 +63,12 @@ export function getCatalogPool() {
     const connectionString = getCatalogUrl();
     if (!connectionString) {
       throw new Error(
-        "Falta DATABASE_CATALOGO_URL (BD con Tables/catalog_items).",
+        "Falta PUBLIC_SUPABASE_URL (tabla catalog_items).",
       );
     }
     if (isHttpCatalogUrl(connectionString)) {
       throw new Error(
-        "DATABASE_CATALOGO_URL es HTTP; no se puede usar como PostgreSQL.",
+        "PUBLIC_SUPABASE_URL es HTTP; no se puede usar como PostgreSQL.",
       );
     }
 
