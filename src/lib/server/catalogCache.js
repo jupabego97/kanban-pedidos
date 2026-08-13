@@ -35,7 +35,9 @@ export async function cacheExpirado(tabla) {
 export async function maybeRefreshProveedores(force = false) {
   if (!isCatalogDbConfigured()) {
     return {
-      syncError: new Error("DATABASE_CATALOGO_URL no configurada"),
+      syncError: new Error(
+        "DATABASE_CATALOGO_URL no configurada (Tables/catalog_items)",
+      ),
     };
   }
 

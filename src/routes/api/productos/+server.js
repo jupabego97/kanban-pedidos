@@ -26,7 +26,8 @@ export async function GET({ url }) {
     return json(
       {
         message: "Catálogo no configurado",
-        detail: "Define DATABASE_CATALOGO_URL en el entorno.",
+        detail:
+          "Define DATABASE_CATALOGO_URL. Los productos se leen de Tables/catalog_items.",
       },
       { status: 503 },
     );

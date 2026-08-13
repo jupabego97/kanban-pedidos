@@ -3,24 +3,49 @@ import { env } from "$env/dynamic/private";
 
 let catalogPool;
 
-function getConnectionString() {
+export function getCatalogUrl() {
   return (
+    env.CATALOGO_ITEMS_URL ||
     env.DATABASE_CATALOGO_URL ||
     env.DATABASE_CATALOGO_PUBLIC_URL ||
-    env.CATALOGO_DATABASE_URL
-  );
+    env.CATALOGO_DATABASE_URL ||
+    ""
+  ).trim();
+}
+
+export function isHttpCatalogUrl(url = getCatalogUrl()) {
+  return /^https?:\/\//i.test(url);
 }
 
 export function isCatalogDbConfigured() {
-  return Boolean(getConnectionString());
+  return Boolean(getCatalogUrl());
+}
+
+export function isCatalogPostgresConfigured() {
+  const url = getCatalogUrl();
+  return Boolean(url) && !isHttpCatalogUrl(url);
+}
+
+export function getCatalogApiKey() {
+  return (
+    env.CATALOGO_API_KEY ||
+    env.SUPABASE_ANON_KEY ||
+    env.SUPABASE_SERVICE_ROLE_KEY ||
+    ""
+  ).trim();
 }
 
 export function getCatalogPool() {
   if (!catalogPool) {
-    const connectionString = getConnectionString();
+    const connectionString = getCatalogUrl();
     if (!connectionString) {
       throw new Error(
-        "Falta DATABASE_CATALOGO_URL (PostgreSQL con tablas items y facturas_proveedor).",
+        "Falta DATABASE_CATALOGO_URL (BD con Tables/catalog_items).",
+      );
+    }
+    if (isHttpCatalogUrl(connectionString)) {
+      throw new Error(
+        "DATABASE_CATALOGO_URL es HTTP; no se puede usar como PostgreSQL.",
       );
     }
 
