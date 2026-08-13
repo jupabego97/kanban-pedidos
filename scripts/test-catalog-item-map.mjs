@@ -45,6 +45,13 @@ assert(
   "filtra por codigo de barras",
 );
 
+const fromAccented = mapCatalogItem({
+  "Nombre": "Pila AA",
+  "Código de barras": "4713218461926",
+});
+assert(fromAccented?.nombre === "Pila AA", "lee nombre con clave acentuada");
+assert(fromAccented?.barcode === "4713218461926", "lee codigo de barras con clave acentuada");
+
 if (process.exitCode) {
   console.error("catalogItemMap tests failed");
 } else {

@@ -3,6 +3,8 @@ const NOMBRE_KEYS = [
   "name",
   "product_name",
   "producto",
+  "producto_nombre",
+  "item_name",
   "Nombre",
   "Name",
   "descripcion",
@@ -14,6 +16,8 @@ const BARCODE_KEYS = [
   "codigo_barras",
   "codigoBarras",
   "codigo_de_barras",
+  "codigodebarras",
+  "codigobarras",
   "barcode",
   "barCode",
   "ean",
@@ -38,6 +42,15 @@ function maybeParseJson(v) {
   }
 }
 
+/** @param {string} key */
+function normalizeKey(key) {
+  return String(key)
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]/g, "");
+}
+
 /**
  * Une columnas del registro con JSON anidado (data, payload, etc.).
  * @param {unknown} raw
@@ -55,13 +68,19 @@ export function unwrapItem(raw) {
       nested = { ...nested, ...parsed };
     }
   }
-  return { ...nested, ...row };
+  const merged = { ...nested, ...row };
+  /** @type {Record<string, unknown>} */
+  const withNormalized = { ...merged };
+  for (const [key, value] of Object.entries(merged)) {
+    withNormalized[normalizeKey(key)] = value;
+  }
+  return withNormalized;
 }
 
 /** @param {Record<string, unknown>} obj @param {string[]} keys */
 function firstString(obj, keys) {
   for (const key of keys) {
-    const value = obj[key];
+    const value = obj[key] ?? obj[normalizeKey(key)];
     if (value != null && String(value).trim()) return String(value).trim();
   }
   return "";
