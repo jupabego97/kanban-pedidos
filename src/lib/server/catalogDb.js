@@ -26,13 +26,16 @@ export function getSupabaseAnonKey() {
   );
 }
 
+/** URL de la BD de catálogo. En Railway: DATABASE_URL. */
 export function getCatalogUrl() {
   return firstEnv(
-    getSupabaseUrl(),
-    privateEnv.CATALOGO_ITEMS_URL,
+    privateEnv.DATABASE_URL,
+    privateEnv.DATABASE_PUBLIC_URL,
     privateEnv.DATABASE_CATALOGO_URL,
     privateEnv.DATABASE_CATALOGO_PUBLIC_URL,
     privateEnv.CATALOGO_DATABASE_URL,
+    privateEnv.CATALOGO_ITEMS_URL,
+    getSupabaseUrl(),
   );
 }
 
@@ -40,18 +43,18 @@ export function isHttpCatalogUrl(url = getCatalogUrl()) {
   return /^https?:\/\//i.test(url);
 }
 
-export function isSupabaseCatalog() {
+export function isCatalogPostgresConfigured() {
   const url = getCatalogUrl();
-  return Boolean(getSupabaseUrl()) || /supabase\.(co|in)/i.test(url);
+  return Boolean(url) && !isHttpCatalogUrl(url);
+}
+
+export function isSupabaseCatalog() {
+  if (isCatalogPostgresConfigured()) return false;
+  return Boolean(getSupabaseUrl()) || /supabase\.(co|in)/i.test(getCatalogUrl());
 }
 
 export function isCatalogDbConfigured() {
   return Boolean(getCatalogUrl());
-}
-
-export function isCatalogPostgresConfigured() {
-  const url = getCatalogUrl();
-  return Boolean(url) && !isHttpCatalogUrl(url);
 }
 
 export function getCatalogApiKey() {
@@ -62,13 +65,11 @@ export function getCatalogPool() {
   if (!catalogPool) {
     const connectionString = getCatalogUrl();
     if (!connectionString) {
-      throw new Error(
-        "Falta PUBLIC_SUPABASE_URL (tabla catalog_items).",
-      );
+      throw new Error("Falta DATABASE_URL (tabla catalog_items).");
     }
     if (isHttpCatalogUrl(connectionString)) {
       throw new Error(
-        "PUBLIC_SUPABASE_URL es HTTP; no se puede usar como PostgreSQL.",
+        "DATABASE_URL no es PostgreSQL; no se puede consultar catalog_items.",
       );
     }
 

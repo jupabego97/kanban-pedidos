@@ -67,7 +67,7 @@ async function resolveCatalogItemsRelation() {
 
   throw new Error(
     lastError?.message ||
-      "No se encontró catalog_items. Define PUBLIC_SUPABASE_URL.",
+      "No se encontró catalog_items. Define DATABASE_URL en Railway.",
   );
 }
 
@@ -181,6 +181,9 @@ async function loadHttpCatalogItems() {
  * @param {string} codigo
  */
 export async function buscarItemsPorCodigo(codigo) {
+  if (isCatalogPostgresConfigured()) {
+    return buscarItemsPorCodigoPostgres(codigo);
+  }
   if (isSupabaseCatalog()) {
     return buscarItemsPorCodigoSupabase(codigo);
   }
@@ -194,6 +197,9 @@ export async function buscarItemsPorCodigo(codigo) {
  * @param {string} texto
  */
 export async function buscarItemsPorNombre(texto) {
+  if (isCatalogPostgresConfigured()) {
+    return buscarItemsPorNombrePostgres(texto);
+  }
   if (isSupabaseCatalog()) {
     return buscarItemsPorNombreSupabase(texto);
   }

@@ -9,7 +9,7 @@ export async function GET({ url }) {
       {
         message: "Catálogo no configurado",
         detail:
-          "Define PUBLIC_SUPABASE_URL. Los productos se leen de catalog_items.",
+          "Define DATABASE_URL. Los productos se leen de catalog_items.",
       },
       { status: 503 },
     );

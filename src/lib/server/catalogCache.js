@@ -35,7 +35,7 @@ export async function cacheExpirado(tabla) {
 export async function maybeRefreshProveedores(force = false) {
   if (!isCatalogDbConfigured()) {
     return {
-      syncError: new Error("PUBLIC_SUPABASE_URL no configurada (catalog_items)"),
+      syncError: new Error("DATABASE_URL no configurada (catalog_items)"),
     };
   }
 
@@ -72,7 +72,7 @@ export async function maybeRefreshProveedores(force = false) {
 /** Refresca proveedores desde facturas_proveedor del catálogo. */
 export async function sincronizarCatalogoCompleto() {
   if (!isCatalogDbConfigured()) {
-    throw new Error("PUBLIC_SUPABASE_URL no configurada");
+    throw new Error("DATABASE_URL no configurada");
   }
   const proveedores = await sincronizarProveedoresLocales();
   return { proveedores, productos: 0, completo: true };
