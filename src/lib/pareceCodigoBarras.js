@@ -21,7 +21,7 @@ export function debeBuscarMientrasEscribe(value) {
 /**
  * Al confirmar el producto del catálogo se rellena el campo; no se envía el faltante.
  * @param {{ nombre?: string, proveedor_id?: number | null } | null | undefined} producto
- * @returns {{ ok: false, error: string } | { ok: true, productoNombre: string, proveedorId: number | null, enviarFaltante: false }}
+ * @returns {{ ok: boolean, error: string, productoNombre: string, proveedorId: number | null, enviarFaltante: boolean }}
  */
 export function aplicarConfirmacionCatalogo(producto) {
   const nombre = String(producto?.nombre ?? "").trim();
@@ -29,10 +29,14 @@ export function aplicarConfirmacionCatalogo(producto) {
     return {
       ok: false,
       error: "No se puede registrar un código de barras como nombre del producto.",
+      productoNombre: "",
+      proveedorId: null,
+      enviarFaltante: false,
     };
   }
   return {
     ok: true,
+    error: "",
     productoNombre: nombre,
     proveedorId: producto?.proveedor_id ?? null,
     enviarFaltante: false,
