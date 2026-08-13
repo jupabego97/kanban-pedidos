@@ -1,5 +1,9 @@
 <script>
-  import { pareceCodigoBarras } from "$lib/pareceCodigoBarras.js";
+  import {
+    aplicarConfirmacionCatalogo,
+    debeBuscarMientrasEscribe,
+    pareceCodigoBarras,
+  } from "$lib/pareceCodigoBarras.js";
   import { buscarProductos, crearSolicitud } from '$lib/apiClient.js';
   import { proveedores, notificacion } from '$lib/stores.js';
   import { iniciarMedicion, finalizarMedicion, registrarErrorFormulario } from '$lib/uxMetrics.js';
@@ -63,7 +67,8 @@
     const q = e.target.value;
     productoNombre = q;
     clearTimeout(debounceTimer);
-    if (q.length < 2 && !pareceCodigoBarras(q)) {
+    if (!debeBuscarMientrasEscribe(q)) {
+      busquedaSeq += 1;
       limpiarSugerencias();
       return;
     }
@@ -76,8 +81,7 @@
   }
 
   /**
-   * Consulta el catálogo por código de barras y, si hay un único resultado,
-   * pregunta si se quiere registrar como faltante mostrando el nombre.
+   * Consulta el catálogo por código (sin dropdown) y pregunta si usar ese nombre.
    * @param {string} codigo
    */
   async function consultarYConfirmarPorCodigo(codigo) {
@@ -86,19 +90,28 @@
     error = '';
     consultandoCodigo = true;
     clearTimeout(debounceTimer);
+    limpiarSugerencias();
+    const seq = ++busquedaSeq;
     try {
-      const resultados = await buscarAhora(codigoTrim);
-      if (!resultados) return;
+      const resultados = await buscarProductos(codigoTrim);
+      if (seq !== busquedaSeq) return;
       if (resultados.length === 1) {
         abrirConfirmacion(resultados[0]);
         return;
       }
       if (resultados.length === 0) {
         error = `No se encontró un producto con el código ${codigoTrim}.`;
-        limpiarSugerencias();
+        return;
       }
+      sugerencias = resultados;
+      mostrarSugerencias = true;
+      sugerenciaActiva = 0;
+      sinResultados = false;
+    } catch (err) {
+      if (seq !== busquedaSeq) return;
+      error = err?.message || 'No se pudo buscar en el catálogo.';
     } finally {
-      consultandoCodigo = false;
+      if (seq === busquedaSeq) consultandoCodigo = false;
     }
   }
 
@@ -129,15 +142,18 @@
 
   function onConfirmarProducto() {
     const producto = productoPendienteConfirmacion;
+    const resultado = aplicarConfirmacionCatalogo(producto);
     cerrarModalConfirmacion();
-    if (!producto?.nombre || pareceCodigoBarras(producto.nombre)) {
-      error = 'No se puede registrar un código de barras como nombre del producto.';
+    if (!resultado.ok) {
+      error = resultado.error;
       registrarErrorFormulario();
       inputRef?.focus();
       return;
     }
-    seleccionarSugerencia(producto);
-    registrarFaltante(producto.nombre);
+    productoNombre = resultado.productoNombre;
+    proveedorId = resultado.proveedorId;
+    limpiarSugerencias();
+    inputRef?.focus();
   }
 
   function onRechazarProducto() {
@@ -258,7 +274,7 @@
 <div class="max-w-md mx-auto px-4 pt-6 pb-10">
   <h1 class="text-2xl font-bold text-gray-900 mb-1">Registrar faltante</h1>
   <p class="text-sm text-gray-500 mb-6">
-    Escanea o escribe el código de barras y pulsa Enter para ver el nombre del producto y registrarlo como faltante.
+    Escanea o escribe el código de barras y pulsa Enter. Te preguntaremos si quieres usar el nombre del catálogo; después elige tipo y pulsa Registrar Faltante.
   </p>
 
   <!-- ALERTA ÉXITO -->
@@ -347,7 +363,7 @@
         {/if}
       </div>
       <p class="mt-1.5 text-xs text-gray-500">
-        Ingresa el código de barras y pulsa Enter para consultar el producto.
+        Con un código, pulsa Enter para consultar. Si confirmas, el nombre reemplaza el código en este campo.
       </p>
       {#if consultandoCodigo}
         <p class="mt-1 text-xs font-medium text-blue-700">Consultando producto...</p>

@@ -12,7 +12,9 @@ Nota: el resumen en memoria se puede inspeccionar en consola importando `obtener
 
 - [ ] El campo producto muestra estados de busqueda y sin resultados.
 - [ ] Se puede navegar sugerencias con teclado (`ArrowUp`, `ArrowDown`, `Enter`, `Escape`).
-- [ ] Al ingresar un codigo de barras y pulsar Enter se pregunta si se registra el producto con su nombre.
+- [ ] Al ingresar un codigo de barras y pulsar Enter se pregunta si se quiere usar el nombre del catalogo.
+- [ ] Al confirmar Si, el nombre reemplaza el codigo en el campo Producto (no se envia el faltante todavia).
+- [ ] Un codigo de barras no dispara busqueda en cada tecla; solo se consulta al pulsar Enter.
 - [ ] Un codigo de barras no se guarda ni se muestra como nombre de tarjeta en el tablero.
 - [ ] No hay doble envio cuando el boton esta en estado de envio.
 - [ ] Al guardar exitoso se limpia formulario y vuelve el foco al producto.
