@@ -56,7 +56,7 @@
       return resultados;
     } catch (err) {
       if (seq !== busquedaSeq) return null;
-      error = 'No se pudo buscar en el catálogo.';
+      error = err?.message || 'No se pudo buscar en el catálogo.';
       limpiarSugerencias();
       return null;
     } finally {

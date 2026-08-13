@@ -1,4 +1,3 @@
-import { env } from "$env/dynamic/private";
 import {
   catalogQuery,
   getCatalogApiKey,
@@ -8,6 +7,12 @@ import {
   isHttpCatalogUrl,
   isSupabaseCatalog,
 } from "$lib/server/catalogDb.js";
+import {
+  barcodeWhereSql,
+  discoverCatalogSource,
+  escapeLike,
+  nombreWhereSql,
+} from "$lib/server/catalogDiscover.js";
 import {
   filterByBarcode,
   filterByNombre,
@@ -26,69 +31,21 @@ const HTTP_CACHE_TTL_MS = 60_000;
 
 /** @type {{ items: ReturnType<typeof mapCatalogItem>[]; expiresAt: number } | null} */
 let httpCatalogCache = null;
-/** @type {string | null} */
-let resolvedPgRelation = null;
-
-function quoteIdentPath(name) {
-  if (!/^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)?$/.test(name)) {
-    throw new Error("Nombre de tabla de catálogo inválido.");
-  }
-  return name
-    .split(".")
-    .map((part) => `"${part}"`)
-    .join(".");
-}
-
-function catalogTableCandidates() {
-  const configured = env.CATALOGO_ITEMS_TABLE?.trim();
-  if (configured) return [configured.replace(/\//g, ".")];
-  return ["catalog_items", "Tables.catalog_items"];
-}
-
-function isUndefinedTable(error) {
-  return error?.code === "42P01" || /does not exist/i.test(String(error?.message));
-}
-
-async function resolveCatalogItemsRelation() {
-  if (resolvedPgRelation) return resolvedPgRelation;
-
-  let lastError = null;
-  for (const candidate of catalogTableCandidates()) {
-    const quoted = quoteIdentPath(candidate);
-    try {
-      await catalogQuery(`SELECT 1 FROM ${quoted} LIMIT 0`);
-      resolvedPgRelation = quoted;
-      return resolvedPgRelation;
-    } catch (error) {
-      lastError = error;
-      if (!isUndefinedTable(error)) throw error;
-    }
-  }
-
-  throw new Error(
-    lastError?.message ||
-      "No se encontró catalog_items. Define DATABASE_URL en Railway.",
-  );
-}
-
-function escapeLike(value) {
-  return String(value ?? "").replace(/[%_\\]/g, "\\$&");
-}
 
 /**
  * @param {string} codigo
  */
 async function buscarItemsPorCodigoPostgres(codigo) {
-  const table = await resolveCatalogItemsRelation();
+  const source = await discoverCatalogSource();
   const codigoTrim = String(codigo ?? "").trim();
   const { rows } = await catalogQuery(
     `
       SELECT to_jsonb(c) AS item
-      FROM ${table} c
-      WHERE to_jsonb(c)::text LIKE $1 ESCAPE '\\'
+      FROM ${source.quoted} c
+      WHERE ${barcodeWhereSql(source, 1)}
       LIMIT 40
     `,
-    [`%${escapeLike(codigoTrim)}%`],
+    [codigoTrim],
   );
   return filterByBarcode(
     rows.map((row) => mapCatalogItem(row.item)).filter(Boolean),
@@ -100,13 +57,13 @@ async function buscarItemsPorCodigoPostgres(codigo) {
  * @param {string} texto
  */
 async function buscarItemsPorNombrePostgres(texto) {
-  const table = await resolveCatalogItemsRelation();
+  const source = await discoverCatalogSource();
   const q = String(texto ?? "").trim();
   const { rows } = await catalogQuery(
     `
       SELECT to_jsonb(c) AS item
-      FROM ${table} c
-      WHERE to_jsonb(c)::text ILIKE $1 ESCAPE '\\'
+      FROM ${source.quoted} c
+      WHERE ${nombreWhereSql(source, 1)}
       LIMIT 40
     `,
     [`%${escapeLike(q)}%`],

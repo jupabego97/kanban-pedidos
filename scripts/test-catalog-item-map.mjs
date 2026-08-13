@@ -45,6 +45,32 @@ assert(
   "filtra por codigo de barras",
 );
 
+const fromAccented = mapCatalogItem({
+  "Nombre": "Pila AA",
+  "Código de barras": "4713218461926",
+});
+assert(fromAccented?.nombre === "Pila AA", "lee nombre con clave acentuada");
+assert(fromAccented?.barcode === "4713218461926", "lee codigo de barras con clave acentuada");
+
+const fromAlegra = mapCatalogItem({
+  name: "MICRO SD ADATA 32GB PREMIER CLASE 10 A1",
+  preferred_supplier_name: "DIANA",
+  payload: {
+    name: "MICRO SD ADATA 32GB PREMIER CLASE 10 A1",
+    customFields: [
+      { name: "Código de barras", value: "4713218461926" },
+      { name: "FAMILIA", value: "ALMACENAMIENTO" },
+      { name: "PROVEEDOR", value: "DIANA" },
+    ],
+  },
+});
+assert(
+  fromAlegra?.nombre === "MICRO SD ADATA 32GB PREMIER CLASE 10 A1",
+  "lee name de catalog_items",
+);
+assert(fromAlegra?.barcode === "4713218461926", "lee Código de barras en customFields");
+assert(fromAlegra?.proveedores?.nombre === "DIANA", "lee proveedor de catalog_items");
+
 if (process.exitCode) {
   console.error("catalogItemMap tests failed");
 } else {
