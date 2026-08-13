@@ -39,7 +39,7 @@
         ¿Registrar como faltante?
       </h2>
       <p id="confirmar-producto-desc" class="text-sm text-gray-600 mt-1">
-        Se encontró este producto. ¿Quieres registrarlo como faltante?
+        ¿Quieres registrar el producto con nombre <span class="font-semibold text-gray-900">{producto.nombre}</span>?
       </p>
     </div>
 
@@ -84,7 +84,7 @@
         class="px-4 py-2.5 rounded-xl bg-blue-700 text-white text-sm font-semibold hover:bg-blue-800 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
         on:click={() => dispatch('confirm')}
       >
-        Sí, registrar como faltante
+        Sí, registrar
       </button>
     </div>
   </div>
