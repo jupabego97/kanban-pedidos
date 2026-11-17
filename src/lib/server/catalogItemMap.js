@@ -226,8 +226,7 @@ export function filterByBarcode(items, codigo) {
       (item) =>
         item &&
         (mismosCodigos(item.barcode, code) || mismosCodigos(item.id, code)),
-    )
-    .slice(0, 8);
+    );
 }
 
 /**
@@ -247,6 +246,55 @@ export function filterByNombre(items, texto) {
           .toLowerCase()
           .includes(q)
       );
-    })
-    .slice(0, 8);
+    });
+}
+
+/**
+ * @param {(CatalogItem | null | undefined)[]} items
+ * @returns {CatalogItem[]}
+ */
+export function dedupeCatalogItems(items) {
+  const seen = new Set();
+  /** @type {CatalogItem[]} */
+  const out = [];
+  for (const item of items) {
+    if (!item) continue;
+    const barcode = String(item.barcode ?? "").replace(/^0+/, "") || "";
+    const key = barcode
+      ? `b:${barcode}`
+      : `i:${String(item.id ?? "")}|n:${item.nombre.toLowerCase()}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(item);
+  }
+  return out;
+}
+
+/**
+ * @param {CatalogItem[]} items
+ * @param {string} texto
+ */
+export function rankCatalogItems(items, texto) {
+  const q = String(texto ?? "").trim().toLowerCase();
+  const qDigits = q.replace(/^0+/, "") || q;
+  return [...items].sort((a, b) => {
+    const sa = scoreItem(a, q, qDigits);
+    const sb = scoreItem(b, q, qDigits);
+    if (sa !== sb) return sa - sb;
+    return a.nombre.localeCompare(b.nombre, "es");
+  });
+}
+
+/**
+ * @param {CatalogItem} item
+ * @param {string} q
+ * @param {string} qDigits
+ */
+function scoreItem(item, q, qDigits) {
+  const nombre = item.nombre.toLowerCase();
+  const barcode = String(item.barcode ?? "").toLowerCase();
+  const barcodeDigits = barcode.replace(/^0+/, "") || barcode;
+  if (nombre === q || barcode === q || barcodeDigits === qDigits) return 0;
+  if (nombre.startsWith(q) || barcode.startsWith(q)) return 1;
+  return 2;
 }

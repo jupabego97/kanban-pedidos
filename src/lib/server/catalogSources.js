@@ -9,15 +9,17 @@ import {
 } from "$lib/server/catalogDb.js";
 import {
   barcodeWhereSql,
-  discoverCatalogSource,
   escapeLike,
+  listCatalogSources,
   nombreWhereSql,
 } from "$lib/server/catalogDiscover.js";
 import {
+  dedupeCatalogItems,
   filterByBarcode,
   filterByNombre,
   mapCatalogItem,
   normalizeCatalogPayload,
+  rankCatalogItems,
 } from "$lib/server/catalogItemMap.js";
 import {
   buscarItemsPorCodigoSupabase,
@@ -27,51 +29,62 @@ import { query } from "$lib/server/db.js";
 
 export { isCatalogDbConfigured };
 
-const HTTP_CACHE_TTL_MS = 60_000;
+const HTTP_CACHE_TTL_MS = 5_000;
 
 /** @type {{ items: ReturnType<typeof mapCatalogItem>[]; expiresAt: number } | null} */
 let httpCatalogCache = null;
 
 /**
+ * @param {(source: {
+ *   schema: string;
+ *   table: string;
+ *   quoted: string;
+ *   barcodeColumns: string[];
+ *   nombreColumns: string[];
+ *   jsonColumns: string[];
+ * }) => string} whereSql
+ * @param {unknown[]} params
+ */
+async function buscarEnTodasLasTablas(whereSql, params) {
+  const sources = await listCatalogSources();
+  const batches = await Promise.all(
+    sources.map(async (source) => {
+      const { rows } = await catalogQuery(
+        `
+          SELECT to_jsonb(c) AS item
+          FROM ${source.quoted} c
+          WHERE ${whereSql(source)}
+        `,
+        params,
+      );
+      return rows.map((row) => mapCatalogItem(row.item)).filter(Boolean);
+    }),
+  );
+  return dedupeCatalogItems(batches.flat());
+}
+
+/**
  * @param {string} codigo
  */
 async function buscarItemsPorCodigoPostgres(codigo) {
-  const source = await discoverCatalogSource();
   const codigoTrim = String(codigo ?? "").trim();
-  const { rows } = await catalogQuery(
-    `
-      SELECT to_jsonb(c) AS item
-      FROM ${source.quoted} c
-      WHERE ${barcodeWhereSql(source, 1)}
-      LIMIT 40
-    `,
+  const items = await buscarEnTodasLasTablas(
+    (source) => barcodeWhereSql(source, 1),
     [codigoTrim],
   );
-  return filterByBarcode(
-    rows.map((row) => mapCatalogItem(row.item)).filter(Boolean),
-    codigoTrim,
-  );
+  return rankCatalogItems(filterByBarcode(items, codigoTrim), codigoTrim);
 }
 
 /**
  * @param {string} texto
  */
 async function buscarItemsPorNombrePostgres(texto) {
-  const source = await discoverCatalogSource();
   const q = String(texto ?? "").trim();
-  const { rows } = await catalogQuery(
-    `
-      SELECT to_jsonb(c) AS item
-      FROM ${source.quoted} c
-      WHERE ${nombreWhereSql(source, 1)}
-      LIMIT 40
-    `,
+  const items = await buscarEnTodasLasTablas(
+    (source) => nombreWhereSql(source, 1),
     [`%${escapeLike(q)}%`],
   );
-  return filterByNombre(
-    rows.map((row) => mapCatalogItem(row.item)).filter(Boolean),
-    q,
-  );
+  return rankCatalogItems(items, q);
 }
 
 function catalogHttpUrls(base) {
@@ -145,7 +158,10 @@ export async function buscarItemsPorCodigo(codigo) {
     return buscarItemsPorCodigoSupabase(codigo);
   }
   if (isHttpCatalogUrl()) {
-    return filterByBarcode(await loadHttpCatalogItems(), codigo);
+    return rankCatalogItems(
+      filterByBarcode(await loadHttpCatalogItems(), codigo),
+      codigo,
+    );
   }
   return buscarItemsPorCodigoPostgres(codigo);
 }
@@ -161,7 +177,10 @@ export async function buscarItemsPorNombre(texto) {
     return buscarItemsPorNombreSupabase(texto);
   }
   if (isHttpCatalogUrl()) {
-    return filterByNombre(await loadHttpCatalogItems(), texto);
+    return rankCatalogItems(
+      filterByNombre(await loadHttpCatalogItems(), texto),
+      texto,
+    );
   }
   return buscarItemsPorNombrePostgres(texto);
 }

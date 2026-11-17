@@ -29,8 +29,19 @@ const BARCODE_HINTS = [
 ];
 const JSON_TYPES = new Set(["json", "jsonb"]);
 
-/** @type {CatalogSource | null} */
-let cachedSource = null;
+const CATALOG_TABLE_NAMES = new Set(
+  PREFERRED_TABLES.map((item) => item.name.toLowerCase()),
+);
+CATALOG_TABLE_NAMES.add("catalog_items");
+
+const EXCLUDED_TABLES = new Set([
+  "proveedores",
+  "solicitudes",
+  "facturas_proveedor",
+]);
+
+/** @type {CatalogSource[] | null} */
+let cachedSources = null;
 
 /**
  * @typedef {{
@@ -125,12 +136,24 @@ function isUsable(source) {
   );
 }
 
+/** @param {CatalogSource} source */
+function isCatalogRelation(source) {
+  const name = source.table.toLowerCase();
+  if (EXCLUDED_TABLES.has(name)) return false;
+  const configured = env.CATALOGO_ITEMS_TABLE?.trim().replace(/\//g, ".");
+  if (configured) {
+    const full = `${source.schema}.${source.table}`;
+    if (source.table === configured || full === configured) return true;
+  }
+  return CATALOG_TABLE_NAMES.has(name) || name.includes("catalog");
+}
+
 /**
- * Detecta la tabla de catálogo y las columnas de nombre / código de barras.
- * @returns {Promise<CatalogSource>}
+ * Todas las tablas de catálogo usables en la BD (catalog_items, items, etc.).
+ * @returns {Promise<CatalogSource[]>}
  */
-export async function discoverCatalogSource() {
-  if (cachedSource) return cachedSource;
+export async function listCatalogSources() {
+  if (cachedSources) return cachedSources;
 
   const { rows } = await catalogQuery(
     `
@@ -140,38 +163,44 @@ export async function discoverCatalogSource() {
     `,
   );
 
-  const sources = groupTables(rows).filter(isUsable);
+  const sources = groupTables(rows)
+    .filter(isUsable)
+    .filter(isCatalogRelation);
   sources.sort((a, b) => scoreSource(b) - scoreSource(a));
 
   const configured = env.CATALOGO_ITEMS_TABLE?.trim().replace(/\//g, ".");
   if (configured) {
-    const forced = sources.find((source) => {
+    const forcedIdx = sources.findIndex((source) => {
       const full = `${source.schema}.${source.table}`;
       return source.table === configured || full === configured;
     });
-    if (forced) {
-      cachedSource = forced;
-      console.info("[catalog] tabla forzada", { relation: forced.quoted });
-      return forced;
+    if (forcedIdx > 0) {
+      const [forced] = sources.splice(forcedIdx, 1);
+      sources.unshift(forced);
     }
   }
 
-  const chosen = sources[0];
-  if (!chosen) {
+  if (sources.length === 0) {
     throw new Error(
       "No se encontró una tabla de catálogo con nombre y código de barras. Se buscó catalog_items e items en DATABASE_URL.",
     );
   }
 
-  console.info("[catalog] tabla detectada", {
-    relation: chosen.quoted,
-    barcodeColumns: chosen.barcodeColumns,
-    nombreColumns: chosen.nombreColumns,
-    jsonColumns: chosen.jsonColumns,
+  console.info("[catalog] tablas detectadas", {
+    relations: sources.map((source) => source.quoted),
   });
 
-  cachedSource = chosen;
-  return chosen;
+  cachedSources = sources;
+  return sources;
+}
+
+/**
+ * Primera tabla de catálogo (la de mayor prioridad).
+ * @returns {Promise<CatalogSource>}
+ */
+export async function discoverCatalogSource() {
+  const sources = await listCatalogSources();
+  return sources[0];
 }
 
 /** @param {string} value */
