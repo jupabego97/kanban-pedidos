@@ -72,7 +72,7 @@ async function buscarItemsPorCodigoPostgres(codigo) {
     (source) => barcodeWhereSql(source, 1),
     [codigoTrim],
   );
-  return rankCatalogItems(items, codigoTrim);
+  return rankCatalogItems(filterByBarcode(items, codigoTrim), codigoTrim);
 }
 
 /**

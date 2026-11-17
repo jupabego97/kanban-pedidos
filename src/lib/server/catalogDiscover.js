@@ -29,6 +29,17 @@ const BARCODE_HINTS = [
 ];
 const JSON_TYPES = new Set(["json", "jsonb"]);
 
+const CATALOG_TABLE_NAMES = new Set(
+  PREFERRED_TABLES.map((item) => item.name.toLowerCase()),
+);
+CATALOG_TABLE_NAMES.add("catalog_items");
+
+const EXCLUDED_TABLES = new Set([
+  "proveedores",
+  "solicitudes",
+  "facturas_proveedor",
+]);
+
 /** @type {CatalogSource[] | null} */
 let cachedSources = null;
 
@@ -125,6 +136,18 @@ function isUsable(source) {
   );
 }
 
+/** @param {CatalogSource} source */
+function isCatalogRelation(source) {
+  const name = source.table.toLowerCase();
+  if (EXCLUDED_TABLES.has(name)) return false;
+  const configured = env.CATALOGO_ITEMS_TABLE?.trim().replace(/\//g, ".");
+  if (configured) {
+    const full = `${source.schema}.${source.table}`;
+    if (source.table === configured || full === configured) return true;
+  }
+  return CATALOG_TABLE_NAMES.has(name) || name.includes("catalog");
+}
+
 /**
  * Todas las tablas de catálogo usables en la BD (catalog_items, items, etc.).
  * @returns {Promise<CatalogSource[]>}
@@ -140,7 +163,9 @@ export async function listCatalogSources() {
     `,
   );
 
-  const sources = groupTables(rows).filter(isUsable);
+  const sources = groupTables(rows)
+    .filter(isUsable)
+    .filter(isCatalogRelation);
   sources.sort((a, b) => scoreSource(b) - scoreSource(a));
 
   const configured = env.CATALOGO_ITEMS_TABLE?.trim().replace(/\//g, ".");
