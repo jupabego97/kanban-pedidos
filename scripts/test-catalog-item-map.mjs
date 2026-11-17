@@ -1,5 +1,7 @@
 import {
+  dedupeCatalogItems,
   filterByBarcode,
+  filterByNombre,
   mapCatalogItem,
   normalizeCatalogPayload,
 } from "../src/lib/server/catalogItemMap.js";
@@ -70,6 +72,25 @@ assert(
 );
 assert(fromAlegra?.barcode === "4713218461926", "lee Código de barras en customFields");
 assert(fromAlegra?.proveedores?.nombre === "DIANA", "lee proveedor de catalog_items");
+
+const many = Array.from({ length: 12 }, (_, i) => ({
+  id: i + 1,
+  nombre: `Cable HDMI ${i + 1}`,
+  codigo_barras: `77000000000${String(i).padStart(2, "0")}`,
+}));
+const mappedMany = many.map((row) => mapCatalogItem(row));
+assert(
+  filterByNombre(mappedMany, "Cable HDMI").length === 12,
+  "devuelve todos los productos que coinciden, no solo 8",
+);
+assert(
+  filterByBarcode(mappedMany, "7700000000003")[0]?.nombre === "Cable HDMI 4",
+  "filtra codigo sin recortar el catalogo",
+);
+assert(
+  dedupeCatalogItems([mappedMany[0], mappedMany[0], mappedMany[1]]).length === 2,
+  "deduplica por codigo de barras",
+);
 
 if (process.exitCode) {
   console.error("catalogItemMap tests failed");

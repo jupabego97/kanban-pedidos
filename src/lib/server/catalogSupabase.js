@@ -4,9 +4,11 @@ import {
   isSupabaseCatalog,
 } from "$lib/server/catalogDb.js";
 import {
+  dedupeCatalogItems,
   filterByBarcode,
   filterByNombre,
   mapCatalogItem,
+  rankCatalogItems,
 } from "$lib/server/catalogItemMap.js";
 
 const TABLE = "catalog_items";
@@ -103,30 +105,39 @@ export async function buscarItemsPorCodigoSupabase(codigo) {
   }
   const code = String(codigo ?? "").trim();
   const columns = barcodeColumn ? [barcodeColumn] : BARCODE_COLUMNS;
+  /** @type {ReturnType<typeof mapCatalogItem>[]} */
+  const found = [];
 
   for (const column of columns) {
     const result = await restGet({
       [column]: `eq.${code}`,
       select: "*",
-      limit: "8",
+      limit: "10000",
     });
     if (!result.ok) continue;
     rememberColumnsFrom(result.data);
     const mapped = mapRows(result.data);
     if (mapped.length > 0) {
       barcodeColumn = column;
-      return mapped;
+      found.push(...mapped);
     }
   }
 
-  const fallback = await restGet({ select: "*", limit: "500" });
+  if (found.length > 0) {
+    return rankCatalogItems(dedupeCatalogItems(found), code);
+  }
+
+  const fallback = await restGet({ select: "*", limit: "10000" });
   if (!fallback.ok) {
     throw new Error(
       `No se pudo leer catalog_items (${fallback.status}): ${errorDetail(fallback.data)}`,
     );
   }
   rememberColumnsFrom(fallback.data);
-  return filterByBarcode(mapRows(fallback.data), code);
+  return rankCatalogItems(
+    filterByBarcode(mapRows(fallback.data), code),
+    code,
+  );
 }
 
 /**
@@ -138,28 +149,37 @@ export async function buscarItemsPorNombreSupabase(texto) {
   }
   const q = String(texto ?? "").trim().replace(/[%_*,()]/g, " ");
   const columns = nombreColumn ? [nombreColumn] : NAME_COLUMNS;
+  /** @type {ReturnType<typeof mapCatalogItem>[]} */
+  const found = [];
 
   for (const column of columns) {
     const result = await restGet({
       [column]: `ilike.*${q}*`,
       select: "*",
-      limit: "8",
+      limit: "10000",
     });
     if (!result.ok) continue;
     rememberColumnsFrom(result.data);
     const mapped = mapRows(result.data);
     if (mapped.length > 0) {
       nombreColumn = column;
-      return mapped;
+      found.push(...mapped);
     }
   }
 
-  const fallback = await restGet({ select: "*", limit: "500" });
+  if (found.length > 0) {
+    return rankCatalogItems(dedupeCatalogItems(found), texto);
+  }
+
+  const fallback = await restGet({ select: "*", limit: "10000" });
   if (!fallback.ok) {
     throw new Error(
       `No se pudo leer catalog_items (${fallback.status}): ${errorDetail(fallback.data)}`,
     );
   }
   rememberColumnsFrom(fallback.data);
-  return filterByNombre(mapRows(fallback.data), texto);
+  return rankCatalogItems(
+    filterByNombre(mapRows(fallback.data), texto),
+    texto,
+  );
 }

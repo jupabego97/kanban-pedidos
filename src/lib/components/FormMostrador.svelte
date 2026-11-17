@@ -320,12 +320,16 @@
           <ul
             id="lista-sugerencias-producto"
             role="listbox"
-            class="absolute left-0 right-0 top-full mt-1 bg-white border border-gray-200 rounded-xl shadow-xl z-40 overflow-hidden"
+            class="absolute left-0 right-0 top-full mt-1 bg-white border border-gray-200 rounded-xl shadow-xl z-40 max-h-80 overflow-y-auto"
           >
             {#if buscandoSugerencias}
               <li class="px-4 py-3 text-sm text-gray-500">Buscando en inventario...</li>
             {:else if sinResultados}
               <li class="px-4 py-3 text-sm text-gray-500">Sin resultados para "{productoNombre}".</li>
+            {:else if sugerencias.length > 1}
+              <li class="px-4 py-2 text-xs text-gray-500 border-b border-gray-100 sticky top-0 bg-white">
+                {sugerencias.length} productos
+              </li>
             {/if}
             {#each sugerencias as s, idx}
               <li>
